@@ -80,10 +80,11 @@ No modificar internamente los SVG originales.
 Antes de implementar una tarea importante:
 
 1. Inspeccionar el repositorio.
-2. Explicar el plan.
-3. Enumerar paquetes nuevos.
-4. Enumerar archivos a modificar.
-5. Esperar aprobación cuando la tarea lo solicite.
+2. Leer `docs/PROJECT_CONTEXT.md`.
+3. Explicar el plan.
+4. Enumerar paquetes nuevos.
+5. Enumerar archivos a modificar.
+6. Esperar aprobación cuando la tarea lo solicite.
 
 Antes de terminar:
 
@@ -94,3 +95,6 @@ Antes de terminar:
 5. Informar archivos modificados.
 6. Informar decisiones y supuestos.
 7. No hacer push automáticamente.
+
+Al terminar una implementación que cambie arquitectura, seguridad, base de
+datos, variables, rutas o flujos, actualizar `docs/PROJECT_CONTEXT.md`.

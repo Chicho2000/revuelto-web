@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AdminRole {
+  OWNER
+}
+
+enum BowlSizeType {
+  SMALL
+  LARGE
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum TemporaryImageTarget {
+  BOWL
+  PROMOTION
+  BRANCH
+  GALLERY
+}
+
+enum GalleryItemType {
+  IMAGE
+  INSTAGRAM_VIDEO
+}
+
+enum TemporaryImageStatus {
+  STAGING
+  PROCESSING
+  READY
+  CLEANUP_PENDING
+  DISCARDED
+  CONFIRMED
+}
+
+model AdminUser {
+  id         String    @id @default(uuid()) @db.Uuid
+  authUserId String    @unique @db.Uuid
+  name       String
+  role       AdminRole @default(OWNER)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  adminSessions AdminSessionActivity[]
+  temporaryImages TemporaryImage[]
+}
+
+model LoginAttempt {
+  id              String   @id @default(uuid()) @db.Uuid
+  ipHash          String
+  emailHash       String
+  failedAttempts  Int      @default(0)
+  windowStartedAt DateTime
+  lastFailedAt    DateTime
+  blockedUntil    DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([ipHash, emailHash])
+  @@index([blockedUntil])
+  @@index([expiresAt])
+}
+
+model AdminSessionActivity {
+  id          String   @id @default(uuid()) @db.Uuid
+  adminUserId String   @db.Uuid
+  sessionHash String   @unique
+  lastActivityAt DateTime
+  expiresAt   DateTime
+  absoluteExpiresAt DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([expiresAt])
+  @@index([absoluteExpiresAt])
+}
+
+model TemporaryImage {
+  id                         String               @id @default(uuid()) @db.Uuid
+  ownerId                    String               @db.Uuid
+  target                     TemporaryImageTarget
+  status                     TemporaryImageStatus @default(STAGING)
+  stagingPath                String               @unique
+  tempPath                   String?              @unique
+  finalPath                  String?              @unique
+  sourceBytes                Int?
+  width                      Int?
+  height                     Int?
+  uploadAuthorizationExpiresAt DateTime
+  expiresAt                  DateTime
+  lastError                  String?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+  owner                      AdminUser            @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([ownerId, status])
+  @@index([expiresAt])
+}
+
+model Bowl {
+  id               String     @id @default(uuid()) @db.Uuid
+  name             String
+  slug             String     @unique
+  shortDescription String
+  description      String
+  imageUrl         String?
+  imagePath        String?
+  isFeatured       Boolean    @default(false)
+  isAvailable      Boolean    @default(true)
+  isArchived       Boolean    @default(false)
+  displayOrder     Int        @default(0)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  sizes            BowlSize[]
+
+  @@index([displayOrder])
+  @@index([isAvailable, isArchived])
+}
+
+model BowlSize {
+  id            String       @id @default(uuid()) @db.Uuid
+  bowlId        String       @db.Uuid
+  size          BowlSizeType
+  ounces        Int
+  eggQuantity   Int
+  price         Decimal      @db.Decimal(10, 2)
+  quantityNotes String?
+  isAvailable   Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  bowl          Bowl         @relation(fields: [bowlId], references: [id], onDelete: Cascade)
+
+  @@unique([bowlId, size])
+}
+
+model Branch {
+  id             String         @id @default(uuid()) @db.Uuid
+  name           String
+  address        String
+  city           String
+  mapsUrl        String
+  whatsappNumber String
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  businessHours  BusinessHour[]
+}
+
+model BusinessHour {
+  id          String    @id @default(uuid()) @db.Uuid
+  branchId    String    @db.Uuid
+  dayOfWeek   DayOfWeek
+  openingTime String?
+  closingTime String?
+  isClosed    Boolean   @default(false)
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, dayOfWeek])
+}
+
+model Promotion {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  description String
+  imageUrl    String?
+  imagePath   String?
+  startDate   DateTime?
+  endDate     DateTime?
+  weeklyDays  DayOfWeek[] @default([])
+  dailyStartTime String?
+  dailyEndTime   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, startDate, endDate])
+}
+
+model SiteContent {
+  id                           String   @id @default(uuid()) @db.Uuid
+  key                          String   @unique
+  title                        String?
+  content                      String
+  heroTitle                    String   @default("Fresco, nutritivo, resuelto.")
+  heroSubtitle                 String?
+  heroDescription              String?
+  heroButtonText               String?
+  heroButtonUrl                String?
+  brandTitle                   String?
+  brandDescription             String?
+  menuSectionTitle             String?
+  menuSectionDescription       String?
+  promotionsSectionTitle       String?
+  promotionsSectionDescription String?
+  branchesSectionTitle         String?
+  branchesSectionDescription   String?
+  gallerySectionTitle          String?
+  gallerySectionDescription    String?
+  whatsappNumber               String?
+  whatsappButtonText           String?
+  whatsappDefaultMessage       String?
+  whatsappEnabled              Boolean  @default(false)
+  instagramUrl                 String?
+  tiktokUrl                    String?
+  footerText                   String?
+  seoTitle                     String?
+  seoDescription               String?
+  updatedAt                    DateTime @updatedAt
+}
+
+model GalleryItem {
+  id          String          @id @default(uuid()) @db.Uuid
+  type        GalleryItemType
+  title       String?
+  description String?
+  imagePath   String
+  externalUrl String?
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([isActive, sortOrder, createdAt])
+}
