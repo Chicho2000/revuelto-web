@@ -12,6 +12,7 @@ import { runImageMutation } from "@/lib/images/mutation-workflow";
 import type { PromotionInput } from "@/lib/promotions/schema";
 import { cancelPromotionImage } from "@/lib/promotions/workflow";
 import { getPrisma } from "@/lib/prisma";
+import { reportUnexpectedServerError } from "@/lib/observability/server-errors";
 
 function promotionValues(input: PromotionInput) {
   return {
@@ -91,7 +92,7 @@ export async function updatePromotion(
       input.temporaryImageId && existing.imagePath
         ? async () => {
             await deleteFinalImage(existing.imagePath!).catch((error) => {
-              console.error("No se pudo borrar la imagen anterior de la promoción.", error);
+              reportUnexpectedServerError("promotions.delete-previous-image", error);
             });
           }
         : undefined,
@@ -99,7 +100,7 @@ export async function updatePromotion(
 
   if (input.removeImage && !input.temporaryImageId && existing.imagePath) {
     await deleteFinalImage(existing.imagePath).catch((error) => {
-      console.error("La promoción se actualizó, pero no se pudo borrar su imagen anterior.", error);
+      reportUnexpectedServerError("promotions.delete-removed-image", error);
     });
   }
   return result;

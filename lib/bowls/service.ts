@@ -11,6 +11,7 @@ import {
   rollbackPreparedFinalImage,
 } from "@/lib/images/temporary-images";
 import { getPrisma } from "@/lib/prisma";
+import { reportUnexpectedServerError } from "@/lib/observability/server-errors";
 
 const sizeDefaults = {
   SMALL: { ounces: 25, eggQuantity: 3 },
@@ -125,7 +126,7 @@ export async function updateBowl(ownerId: string, bowlId: string, input: BowlInp
       input.temporaryImageId && existing.imagePath
         ? async () => {
             await deleteFinalImage(existing.imagePath!).catch((error) => {
-              console.error("No se pudo borrar la imagen anterior del bowl.", error);
+              reportUnexpectedServerError("bowls.delete-previous-image", error);
             });
           }
         : undefined,
@@ -155,7 +156,7 @@ export async function deleteBowl(bowlId: string, confirmation: string) {
 
   if (bowl.imagePath) {
     await deleteFinalImage(bowl.imagePath).catch((error) => {
-      console.error("El bowl se eliminÃ³, pero no se pudo borrar su imagen final.", error);
+      reportUnexpectedServerError("bowls.delete-final-image", error);
     });
   }
 }

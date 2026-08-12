@@ -42,6 +42,9 @@ configuración. La aplicación no entrega datos simulados como fallback.
 | `DIRECT_URL` | Conexión directa usada exclusivamente por Prisma CLI y migraciones. |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL pública del proyecto Supabase. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable Key actual de Supabase para Auth y Storage. |
+| `SENTRY_DSN` | DSN privada para captura de errores en servidor y edge. |
+| `NEXT_PUBLIC_SENTRY_DSN` | DSN de ingesta pública para captura de errores del navegador. |
+| `CRON_SECRET` | Secreto privado para autenticar el cron diario de limpieza. |
 
 Este proyecto usa la convención actual de Publishable Key. No mezcles ni
 agregues `NEXT_PUBLIC_SUPABASE_ANON_KEY` para esta implementación. No se usa

@@ -1,6 +1,6 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-08-04.
+Actualizada: 2026-08-12.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
@@ -12,9 +12,12 @@ usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
 - Proyecto: Revuelto.
 - Responsable que reporta la dedicación: Ciro Pregot.
 - Trabajo acumulado informado antes de iniciar la ETAPA 2: **6 horas y 30 minutos**.
+- Trabajo informado desde el último push (`dd71a77`) para esta porción del proyecto: **aproximadamente 5 horas y 30 minutos**.
+- Dedicación acumulada informada hasta esta actualización: **aproximadamente 12 horas**.
 
 Este registro refleja el tiempo informado por Ciro para el alcance construido
-hasta la fecha; no es una estimación automática ni incluye trabajo futuro.
+hasta la fecha; las 5 horas y 30 minutos corresponden a los cambios pendientes
+desde el último push. No es una estimación automática ni incluye trabajo futuro.
 
 ## Objetivo y alcance actual
 
@@ -52,7 +55,8 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general y galer
 | Zod | Validación de variables y cuerpos de Route Handlers. |
 | React Hook Form | Estado y validación de formularios administrativos complejos. |
 | Cloudflare Turnstile | Verificación humana de cada login. |
-| Sharp | Validación, normalización y conversión de imágenes a WebP. |
+| Sharp | Inspección y validación de imágenes sin transformación. |
+| Sentry | Captura de errores sanitizada para servidor, edge y navegador. |
 | ESLint, Node test runner y TSX | Calidad estática y pruebas unitarias. |
 | Vercel | Despliegue previsto. |
 
@@ -119,7 +123,7 @@ Browser
 | `POST /admin/logout` | Elimina actividad, cierra Supabase Auth y borra cookie administrativa. |
 | `POST /admin/session/activity` | Renueva solo el vencimiento por inactividad. |
 | `POST /admin/images/upload-intent` | Crea una autorización de staging para una imagen. |
-| `POST /admin/images/complete` | Descarga, valida y procesa staging con Sharp. |
+| `POST /admin/images/complete` | Descarga y valida staging con Sharp sin transformarlo. |
 | `POST /admin/images/discard` | Descarta un temporal al cancelar. |
 | `POST /admin/bowls/manage` | Crea Bowl y SMALL/LARGE en una transacción. |
 | `PUT /admin/bowls/manage/[id]` | Edita Bowl y hace upsert controlado de tamaños. |
@@ -254,17 +258,33 @@ respuesta genérica que una credencial incorrecta.
   es la única defensa.
 - Logout borra el registro actual y ejecuta `supabase.auth.signOut()`.
 
+### Sentry y errores públicos
+
+Sentry captura fallos inesperados de servidor, edge y navegador. `sendDefaultPii`
+está desactivado, no se guardan breadcrumbs ni trazas de performance y los hooks
+`beforeSend`/`beforeSendTransaction` eliminan usuario, IP, request, URL, headers,
+cookies, body, datos extra, contextos, mensajes, nombre de transacción y spans.
+El evento conserva ubicaciones de stack y solo los tags controlados `area` y
+`runtime`. El cliente recibe un mensaje genérico, nunca Prisma, SQL ni stack.
+
 ## Imágenes y Storage
 
 ### Buckets previstos
 
 | Bucket | Visibilidad | Uso |
 | --- | --- | --- |
-| `revuelto-temp` | Privado | Originales de staging y WebP temporales. |
-| `bucket-media` | Público de solo lectura | Imágenes finales procesadas. |
+| `revuelto-temp` | Privado | Staging y copias temporales validadas en su formato original. |
+| `bucket-media` | Público de solo lectura | Imágenes finales validadas. |
 
-No se conceden permisos de insert/update/delete a `anon` o `authenticated`.
-La service role se usa únicamente desde el servidor para Storage.
+No se conceden permisos directos de select/list/insert/update/delete a `anon` o
+`authenticated`. La lectura pública de `bucket-media` usa la URL pública del
+objeto. La service role se usa únicamente desde el servidor para Storage. El SQL
+manual de auditoría y políticas restrictivas está en `docs/STORAGE_SECURITY.sql`.
+
+Auditoría read-only del 2026-08-10: `storage.objects` no tiene políticas;
+`revuelto-temp` es privado, permite JPEG/PNG/WebP y debe reducirse de 10 a 5 MB;
+`bucket-media` es público, ya limita 5 MB y debe ampliar sus MIME desde solo WebP
+a JPEG/PNG/WebP. Estos dos cambios de bucket quedan manuales en Dashboard.
 
 ### Flujo
 
@@ -273,17 +293,31 @@ La service role se usa únicamente desde el servidor para Storage.
 3. El browser sube directo a `revuelto-temp` para no atravesar el límite de
    cuerpo de una Function de Vercel.
 4. El servidor descarga el original y revalida contenido real.
-5. Sharp convierte a WebP privado, elimina metadata y borra staging.
+5. Sharp inspecciona formato, dimensiones y frames. Si cumple, se copian los bytes exactos; no hay resize, rotate, compresión, remoción de metadata ni conversión.
 6. Los CRUD de bowls, promociones y galería preparan la copia final, persisten la base y luego confirman el temporal.
-7. Promociones guarda finales bajo `promotions/{promotionId}/{uuid}.webp`; reemplazo y quita preservan la imagen anterior hasta actualizar la base.
-8. Galería guarda finales bajo `gallery/{galleryItemId}/{uuid}.webp`; al reemplazar actualiza la base, confirma el temporal y recién entonces borra la imagen anterior.
+7. Promociones guarda finales bajo `promotions/{promotionId}/{uuid}.{jpg|png|webp}`; reemplazo y quita preservan la imagen anterior hasta actualizar la base.
+8. Galería guarda finales bajo `gallery/{galleryItemId}/{uuid}.{jpg|png|webp}`; al reemplazar actualiza la base, confirma el temporal y recién entonces borra la imagen anterior.
 9. Si algo falla, intenta borrar de inmediato y deja `CLEANUP_PENDING` para la
    futura tarea programada si no logra limpiar.
 
-Límites de bowls, promociones y galería: entrada máxima 5 MB, 6000×6000, 24 MP, un frame/página y solo
-JPEG/PNG/WebP reales. Se rechazan SVG, GIF, TIFF, BMP, HEIC, PDF y animados. Salidas: bowl
-1600x1600, promoción 1920x1080, sucursal 1920x1440 y galería 1600x1200; `fit: inside`, sin ampliar,
-WebP calidad 82.
+Límites de bowls, promociones, sucursales y galería: máximo 5 MB, 6000×6000,
+24 MP, un frame/página y solo JPEG/PNG/WebP reales. Se rechazan SVG, GIF,
+TIFF, BMP, HEIC, PDF, animados y cualquier imagen excedida. Un archivo mayor a
+5 MB produce 413; el resto de los incumplimientos, 400. JPEG continúa JPEG, PNG
+continúa PNG y WebP continúa WebP, con bytes, resolución y metadata intactos.
+
+### Limpieza automática
+
+`GET /api/internal/cleanup-temporary-images` exige `Authorization: Bearer
+<CRON_SECRET>`. `vercel.json` lo ejecuta diariamente a las 03:00 UTC. Selecciona
+solo registros no confirmados cuyo `expiresAt` ya pasó (24 horas), valida que
+staging/temp pertenezcan a `staging/{ownerId}` o `temp/{ownerId}`, elimina esos
+objetos y borra el registro con `deleteMany`. Si el registro ya tiene
+`finalPath`, no borra el final: limpia temporales y lo marca `CONFIRMED`. Una
+ruta ambigua queda `CLEANUP_PENDING`. Repetir el proceso es idempotente.
+Los objetos que no tengan ningún registro `TemporaryImage` asociable no se
+enumeran ni se borran automáticamente; deben auditarse manualmente para evitar
+eliminar por error un recurso válido.
 
 ## Variables de entorno
 
@@ -300,6 +334,9 @@ Copiar `.env.example` a `.env.local`; nunca versionar valores reales.
 | `TURNSTILE_SITE_KEY` | Pública por entrega controlada | La lee Server Component y la pasa como prop. |
 | `TURNSTILE_SECRET_KEY` | Privada | Verificación Siteverify en servidor. |
 | `TURNSTILE_EXPECTED_HOSTNAME` | Privada/configuración | Hostname que el servidor exige en la respuesta. |
+| `CRON_SECRET` | Privada | Bearer aleatorio de 16+ caracteres para Vercel Cron; nunca `NEXT_PUBLIC`. |
+| `SENTRY_DSN` | Privada | DSN usada por servidor y edge; configurar en Vercel. |
+| `NEXT_PUBLIC_SENTRY_DSN` | Pública | DSN de ingesta para capturar errores del navegador; no es un token de cuenta. |
 
 Ningún Client Component lee `process.env.TURNSTILE_SITE_KEY` directamente.
 
@@ -329,7 +366,7 @@ npx prisma validate
 ```
 
 `postinstall` ejecuta `prisma generate`. El build y TypeScript deben pasar antes
-de desplegar. Las 74 pruebas actuales validan los CRUD de bowls, sucursales, promociones y contenido,
+de desplegar. Las 84 pruebas actuales validan los CRUD de bowls, sucursales, promociones y contenido,
 la galería, URLs de Instagram, imágenes, navegación pública condicional, HMAC/normalización,
 bloqueo, límite absoluto de sesión e imágenes.
 
@@ -340,7 +377,7 @@ bloqueo, límite absoluto de sesión e imágenes.
 3. Aplicar migraciones revisadas desde un entorno autorizado antes del deploy
    que use el nuevo esquema.
 4. Crear buckets y configurar Turnstile para hostnames de cada entorno.
-5. Agregar posteriormente un cron autenticado para `cleanupExpiredTemporaryImages`.
+5. Configurar `CRON_SECRET`; `vercel.json` registrará el cron diario en el deploy de producción.
 
 ## Próxima etapa
 
@@ -348,7 +385,7 @@ bloqueo, límite absoluto de sesión e imágenes.
 - Crear/configurar los buckets de Storage y Turnstile en producción.
 - Aplicar, después de revisión y autorización, la migración de contenido y galería.
 - Añadir pruebas de integración contra un entorno de prueba aislado.
-- Configurar cron de limpieza y monitoreo de temporales.
+- Verificar el primer cron de limpieza y monitorear sus resultados en Vercel.
 
 ## Mantenimiento documental
 

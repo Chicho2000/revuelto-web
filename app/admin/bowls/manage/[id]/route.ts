@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getOwnerAccess } from "@/lib/auth";
 import { bowlDeleteSchema, bowlInputSchema, getBowlMutationError } from "@/lib/bowls/schema";
 import { deleteBowl, updateBowl } from "@/lib/bowls/service";
+import { mutationErrorResponse } from "@/lib/observability/route-errors";
+import { getOwnerRouteAuthorization } from "@/lib/security/owner-route";
 
 const bowlIdSchema = z.string().uuid();
 
@@ -10,10 +11,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const access = await getOwnerAccess();
-  if (access.status !== "owner") {
-    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  }
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
+  const { access } = authorization;
 
   const { id } = await params;
   if (!bowlIdSchema.safeParse(id).success) {
@@ -32,9 +32,7 @@ export async function PUT(
     await updateBowl(access.adminUser.id, id, parsed.data);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("No se pudo actualizar el bowl.", error);
-    const mutationError = getBowlMutationError(error);
-    return NextResponse.json({ error: mutationError.message }, { status: mutationError.status });
+    return mutationErrorResponse("bowls.update", error, getBowlMutationError);
   }
 }
 
@@ -42,10 +40,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const access = await getOwnerAccess();
-  if (access.status !== "owner") {
-    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  }
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
 
   const { id } = await params;
   if (!bowlIdSchema.safeParse(id).success) {
@@ -61,8 +57,6 @@ export async function DELETE(
     await deleteBowl(id, parsed.data.confirmation);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("No se pudo eliminar el bowl.", error);
-    const mutationError = getBowlMutationError(error);
-    return NextResponse.json({ error: mutationError.message }, { status: mutationError.status });
+    return mutationErrorResponse("bowls.delete", error, getBowlMutationError);
   }
 }

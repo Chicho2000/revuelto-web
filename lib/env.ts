@@ -19,6 +19,10 @@ const turnstileEnvironmentSchema = z.object({
   TURNSTILE_EXPECTED_HOSTNAME: z.string().min(1),
 });
 
+const cronEnvironmentSchema = z.object({
+  CRON_SECRET: z.string().min(16),
+});
+
 export type SupabaseEnvironment = z.infer<typeof supabaseEnvironmentSchema>;
 
 export function getSupabaseEnvironment(): SupabaseEnvironment | null {
@@ -60,6 +64,14 @@ export function getTurnstileEnvironment() {
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     TURNSTILE_EXPECTED_HOSTNAME: process.env.TURNSTILE_EXPECTED_HOSTNAME,
+  });
+
+  return result.success ? result.data : null;
+}
+
+export function getCronEnvironment() {
+  const result = cronEnvironmentSchema.safeParse({
+    CRON_SECRET: process.env.CRON_SECRET,
   });
 
   return result.success ? result.data : null;

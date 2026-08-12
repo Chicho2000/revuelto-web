@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOwnerAccess } from "@/lib/auth";
 import { siteContentFormSchema } from "@/lib/content/schema";
 import { updateSiteContent } from "@/lib/content/service";
+import { reportUnexpectedServerError } from "@/lib/observability/server-errors";
+import { getOwnerRouteAuthorization } from "@/lib/security/owner-route";
 
 export async function PUT(request: NextRequest) {
-  const access = await getOwnerAccess();
-  if (access.status !== "owner") return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
 
   const parsed = siteContentFormSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -19,8 +20,8 @@ export async function PUT(request: NextRequest) {
     await updateSiteContent(parsed.data);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("No se pudo actualizar el contenido general.", error);
     const migrationMissing = typeof error === "object" && error !== null && "code" in error && error.code === "P2022";
+    if (!migrationMissing) reportUnexpectedServerError("content.update", error);
     return NextResponse.json(
       { error: migrationMissing ? "Falta aplicar la migración de contenido y galería." : "No se pudieron guardar los cambios." },
       { status: migrationMissing ? 503 : 500 },

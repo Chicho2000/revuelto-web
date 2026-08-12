@@ -9,6 +9,7 @@ import { sortPublicPromotions } from "@/lib/promotions/schema";
 import { getSiteContent } from "@/lib/content/service";
 import type { SiteContentInput } from "@/lib/content/schema";
 import { getPublicGalleryImageUrl } from "@/lib/gallery/public-image";
+import { reportUnexpectedServerError } from "@/lib/observability/server-errors";
 
 export type PublicSiteData =
   | { status: "configuration" }
@@ -94,7 +95,7 @@ async function loadPublicSiteData(): Promise<PublicSiteData> {
 
     return { status: "ready", content, ...visibleContent, navigation };
   } catch (error) {
-    console.error("No se pudieron leer los datos públicos de Revuelto.", error);
+    reportUnexpectedServerError("public-data.load", error);
     return { status: "error" };
   }
 }

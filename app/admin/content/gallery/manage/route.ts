@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOwnerAccess } from "@/lib/auth";
 import {
   galleryItemCreateSchema,
   galleryItemInputFromForm,
   getGalleryMutationError,
 } from "@/lib/gallery/schema";
 import { createGalleryItem } from "@/lib/gallery/service";
+import { mutationErrorResponse } from "@/lib/observability/route-errors";
+import { getOwnerRouteAuthorization } from "@/lib/security/owner-route";
 
 export async function POST(request: NextRequest) {
-  const access = await getOwnerAccess();
-  if (access.status !== "owner") return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
+  const { access } = authorization;
   const parsed = galleryItemCreateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
@@ -21,8 +23,6 @@ export async function POST(request: NextRequest) {
     const item = await createGalleryItem(access.adminUser.id, galleryItemInputFromForm(parsed.data));
     return NextResponse.json({ ok: true, galleryItemId: item.id }, { status: 201 });
   } catch (error) {
-    console.error("No se pudo crear el elemento de galería.", error);
-    const mutationError = getGalleryMutationError(error);
-    return NextResponse.json({ error: mutationError.message }, { status: mutationError.status });
+    return mutationErrorResponse("gallery.create", error, getGalleryMutationError);
   }
 }

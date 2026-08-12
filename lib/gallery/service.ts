@@ -11,6 +11,7 @@ import {
 } from "@/lib/images/temporary-images";
 import { runImageMutation } from "@/lib/images/mutation-workflow";
 import { getPrisma } from "@/lib/prisma";
+import { reportUnexpectedServerError } from "@/lib/observability/server-errors";
 
 function galleryValues(input: GalleryItemInput) {
   return {
@@ -76,7 +77,7 @@ export async function updateGalleryItem(ownerId: string, galleryItemId: string, 
     deletePrevious: input.temporaryImageId
       ? async () => {
           await deleteFinalImage(existing.imagePath).catch((error) => {
-            console.error("No se pudo borrar la imagen anterior de galería.", error);
+            reportUnexpectedServerError("gallery.delete-previous-image", error);
           });
         }
       : undefined,

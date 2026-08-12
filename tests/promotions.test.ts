@@ -154,7 +154,7 @@ test("cancelar descarta la imagen temporal", async () => {
   assert.deepEqual(discarded, ["image-id"]);
 });
 
-test("procesa promociones a WebP 1920x1080 y respeta 5 MB", async () => {
+test("valida promociones sin transformar la imagen y respeta 5 MB", async () => {
   const sharp = (await import("sharp")).default;
   const { TemporaryImageTarget } = await import("../generated/prisma/client");
   const { InvalidImageError, validateAndProcessImage } = await import("../lib/images/image-processing");
@@ -162,10 +162,10 @@ test("procesa promociones a WebP 1920x1080 y respeta 5 MB", async () => {
     create: { width: 3000, height: 2000, channels: 3, background: "#e1a1a1" },
   }).jpeg().toBuffer();
   const result = await validateAndProcessImage(source, TemporaryImageTarget.PROMOTION);
-  const metadata = await sharp(result.buffer).metadata();
-  assert.equal(metadata.format, "webp");
-  assert.equal(result.width, 1620);
-  assert.equal(result.height, 1080);
+  assert.equal(result.buffer.equals(source), true);
+  assert.equal(result.format, "jpeg");
+  assert.equal(result.width, 3000);
+  assert.equal(result.height, 2000);
   await assert.rejects(
     validateAndProcessImage(Buffer.alloc(5 * 1024 * 1024 + 1), TemporaryImageTarget.PROMOTION),
     InvalidImageError,

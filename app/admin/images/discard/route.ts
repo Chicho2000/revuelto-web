@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getOwnerAccess } from "@/lib/auth";
 import { discardTemporaryImage } from "@/lib/images/temporary-images";
+import { reportUnexpectedServerError } from "@/lib/observability/server-errors";
+import { getOwnerRouteAuthorization } from "@/lib/security/owner-route";
 
 const discardSchema = z.object({ imageId: z.string().uuid() }).strict();
 
 export async function POST(request: NextRequest) {
-  const access = await getOwnerAccess();
-  if (access.status !== "owner") {
-    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  }
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
+  const { access } = authorization;
 
   const parsed = discardSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
   try {
     await discardTemporaryImage(access.adminUser.id, parsed.data.imageId);
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "No se pudo descartar la imagen." }, { status: 503 });
+  } catch (error) {
+    reportUnexpectedServerError("images.discard", error);
+    return NextResponse.json({ error: "Ocurrió un error. Intentá nuevamente." }, { status: 500 });
   }
 }

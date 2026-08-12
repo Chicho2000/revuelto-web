@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getOwnerAccess } from "@/lib/auth";
 import { bowlStatusSchema, getBowlMutationError } from "@/lib/bowls/schema";
 import { setBowlActive } from "@/lib/bowls/service";
+import { mutationErrorResponse } from "@/lib/observability/route-errors";
+import { getOwnerRouteAuthorization } from "@/lib/security/owner-route";
 
 const bowlIdSchema = z.string().uuid();
 
@@ -10,10 +11,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const access = await getOwnerAccess();
-  if (access.status !== "owner") {
-    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  }
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
 
   const { id } = await params;
   const parsedId = bowlIdSchema.safeParse(id);
@@ -26,7 +25,6 @@ export async function PATCH(
     await setBowlActive(id, parsedBody.data.isActive);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const mutationError = getBowlMutationError(error);
-    return NextResponse.json({ error: mutationError.message }, { status: mutationError.status });
+    return mutationErrorResponse("bowls.status", error, getBowlMutationError);
   }
 }

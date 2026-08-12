@@ -103,13 +103,15 @@ test("el enlace externo visible usa nueva pestaña y rel seguro", () => {
   );
 });
 
-test("procesa miniaturas de galería como WebP 1600x1200 y respeta 5 MB", async () => {
+test("valida miniaturas de galería sin transformarlas y respeta 5 MB", async () => {
   const sharp = (await import("sharp")).default;
   const { TemporaryImageTarget } = await import("../generated/prisma/client");
   const { InvalidImageError, validateAndProcessImage } = await import("../lib/images/image-processing");
   const source = await sharp({ create: { width: 2400, height: 1800, channels: 3, background: "#6ebbbe" } }).png().toBuffer();
   const result = await validateAndProcessImage(source, TemporaryImageTarget.GALLERY);
-  assert.equal(result.width, 1600);
-  assert.equal(result.height, 1200);
+  assert.equal(result.buffer.equals(source), true);
+  assert.equal(result.format, "png");
+  assert.equal(result.width, 2400);
+  assert.equal(result.height, 1800);
   await assert.rejects(validateAndProcessImage(Buffer.alloc(5 * 1024 * 1024 + 1), TemporaryImageTarget.GALLERY), InvalidImageError);
 });
