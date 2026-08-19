@@ -88,6 +88,13 @@ Archivo:
 - Usar los SVG desde `/public/brand/logos`.
 - Usar las presentaciones únicamente como referencia visual.
 
+## Referencias visuales
+
+Las imágenes de inspiración y de aplicaciones de marca se organizan en
+[`references/`](./references/README.md). No son recursos públicos de la web ni
+fotografías de producto para publicar directamente: sirven como fuente de
+criterio cuando se itere el diseño visual de la página.
+
 ## Diseño web sugerido
 
 - Fondo principal crema.

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./public.css";
 
 const ohnoSoftie = localFont({
   src: "../src/assets/fonts/fonnts.com-Ohno_Softie_Variable.otf",

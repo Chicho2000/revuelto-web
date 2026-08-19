@@ -29,7 +29,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general y galer
 | Área | Estado |
 | --- | --- |
 | Carta pública | Implementada, servida por Next.js y Prisma en servidor; menú y secciones dependen del contenido público visible. |
-| Identidad visual | Implementada con assets y fuentes locales de la marca. |
+| Identidad visual | Primer prototipo del rediseño público implementado con assets, colores y fuentes locales de la marca. |
 | Login y autorización OWNER | Implementados. |
 | Rate limiting y Turnstile | Implementados. |
 | Sesión administrativa | Implementada: 30 min inactiva o 1 h absoluta. |
@@ -61,6 +61,14 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general y galer
 | Vercel | Despliegue previsto. |
 
 No hay Express, registro público ni Prisma en componentes cliente.
+
+## Frontend público
+
+La portada usa una dirección editorial de gastronomía rápida inspirada en las piezas existentes de Revuelto: tipografía de gran escala, bloques cromáticos de alto contraste, ilustraciones propias, bordes negros y composiciones asimétricas. No agrega colores, logos, fotografías ni textos comerciales ajenos a la marca. El hero, los títulos y descripciones de sección, CTA, contacto, redes, SEO y footer siguen viniendo del contenido administrable.
+
+La cabecera es sticky y genera sus enlaces únicamente desde colecciones públicas con contenido. En pantallas pequeñas se convierte en un menú desplegable con `aria-expanded`, cierre por Escape y cierre al seleccionar un destino. Carta, promociones, galería y sucursales conservan sus reglas de visibilidad existentes; si una colección está vacía no existe ni su sección ni su enlace.
+
+`app/page.tsx` permanece como Server Component. Sólo `PublicHeader`, `RevealController`, `GalleryDisplay`, `ClickSpark` y `CurvedLoop` usan cliente para interacción. El revelado al hacer scroll usa un solo `IntersectionObserver`, se activa de forma progresiva para que el HTML nunca dependa de JavaScript para ser visible y respeta `prefers-reduced-motion`. El carrusel conserva pausa por hover/foco, controles por botón y enlaces no enfocables en diapositivas ocultas. Los dos efectos de React Bits se guardan como componentes locales: `ClickSpark` anima únicamente mientras existen partículas y `CurvedLoop` detiene su loop con movimiento reducido; no agregaron paquetes de runtime. `TextLoop` se descartó en esta iteración porque no existe una secuencia administrable de textos y mezclar o duplicar campos comerciales degradaría su jerarquía.
 
 ## Arquitectura
 
