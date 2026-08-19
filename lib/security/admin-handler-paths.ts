@@ -4,6 +4,7 @@ const protectedAdminHandlerPrefixes = [
   "/admin/promotions/manage",
   "/admin/content/manage",
   "/admin/content/gallery/manage",
+  "/admin/merchandise/manage",
   "/admin/images",
   "/admin/session/activity",
 ] as const;

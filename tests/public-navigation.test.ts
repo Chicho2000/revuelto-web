@@ -54,6 +54,11 @@ type PublicSource = {
     externalUrl: string | null;
     isActive: boolean;
   }>;
+  merchandise?: Array<{
+    id: string;
+    imagePath: string;
+    isActive: boolean;
+  }>;
 };
 
 function renderedState(source: PublicSource = {}) {
@@ -63,6 +68,7 @@ function renderedState(source: PublicSource = {}) {
       branches: source.branches ?? [],
       promotions: source.promotions ?? [],
       gallery: source.gallery ?? [],
+      merchandise: source.merchandise ?? [],
     },
   );
   const navigation = buildPublicNavigation(visibleContent);
@@ -142,12 +148,25 @@ test("con multimedia activa aparecen enlace y sección de galería", () => {
   assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.gallery), true);
 });
 
+test("sin merchandising activo no existe enlace ni sección", () => {
+  const state = renderedState({ merchandise: [{ id: "inactive", imagePath: "merchandise/a.webp", isActive: false }] });
+  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.merchandise}`), false);
+  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.merchandise), false);
+});
+
+test("con merchandising activo aparecen enlace y sección", () => {
+  const state = renderedState({ merchandise: [{ id: "active", imagePath: "merchandise/a.webp", isActive: true }] });
+  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.merchandise}`), true);
+  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.merchandise), true);
+});
+
 test("cada enlace interno visible apunta a un id realmente renderizado", () => {
   const state = renderedState({
     bowls: [activeBowl],
     promotions: [currentPromotion],
     branches: [activeBranch],
     gallery: [{ id: "active", type: "IMAGE", imagePath: "gallery/a.webp", externalUrl: null, isActive: true }],
+    merchandise: [{ id: "active", imagePath: "merchandise/a.webp", isActive: true }],
   });
   const sectionIds = new Set<string>(state.sectionIds);
 

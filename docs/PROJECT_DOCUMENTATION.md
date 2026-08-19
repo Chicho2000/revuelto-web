@@ -1,6 +1,6 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-08-12.
+Actualizada: 2026-08-19.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
@@ -12,19 +12,19 @@ usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
 - Proyecto: Revuelto.
 - Responsable que reporta la dedicación: Ciro Pregot.
 - Trabajo acumulado informado antes de iniciar la ETAPA 2: **6 horas y 30 minutos**.
-- Trabajo informado desde el último push (`dd71a77`) para esta porción del proyecto: **aproximadamente 5 horas y 30 minutos**.
+- Trabajo incorporado entre `dd71a77` y el commit actual verificado `40b93b1`: **aproximadamente 5 horas y 30 minutos**.
 - Dedicación acumulada informada hasta esta actualización: **aproximadamente 12 horas**.
 
 Este registro refleja el tiempo informado por Ciro para el alcance construido
-hasta la fecha; las 5 horas y 30 minutos corresponden a los cambios pendientes
-desde el último push. No es una estimación automática ni incluye trabajo futuro.
+hasta la fecha; las 5 horas y 30 minutos corresponden a los cambios incorporados
+entre ambos commits. No es una estimación automática ni incluye trabajo futuro.
 
 ## Objetivo y alcance actual
 
 Revuelto es una carta pública y un panel administrativo privado para un negocio
 de bowls de huevos revueltos. El proyecto ya tiene base de datos, protección de
 rutas, autenticación administrativa, controles de seguridad e infraestructura
-de imágenes y CRUD de bowls, sucursales, promociones, contenido general y galería.
+de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galería y merchandising.
 
 | Área | Estado |
 | --- | --- |
@@ -33,13 +33,14 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general y galer
 | Login y autorización OWNER | Implementados. |
 | Rate limiting y Turnstile | Implementados. |
 | Sesión administrativa | Implementada: 30 min inactiva o 1 h absoluta. |
-| Modelo Prisma y RLS | Implementados; migración de sesión absoluta pendiente. |
-| Storage y procesamiento de imágenes | Infraestructura implementada; buckets existentes y configuración de producción pendiente. |
+| Modelo Prisma y RLS | Implementados; seis migraciones aplicadas y la nueva migración aditiva de merchandising pendiente. |
+| Storage y procesamiento de imágenes | Infraestructura implementada; buckets revisados y corregidos a 5 MB con JPEG/PNG/WebP. |
 | CRUD de bowls | Implementado con dos tamaños, estado, imágenes seguras y borrado definitivo confirmado por nombre. |
 | CRUD de sucursales y horarios | Implementado con siete días, estado, teléfono opcional y borrado definitivo confirmado por nombre. |
 | CRUD de promociones | Implementado con fechas opcionales, estado e imágenes seguras; sin eliminación definitiva. |
 | CRUD de contenido | Implementado con singleton estructurado, contacto, redes, footer y SEO. |
 | Galería multimedia | Implementada con fotos y miniaturas enlazadas a Instagram; sin video alojado ni embeds. |
+| Merchandising | Catálogo administrable implementado; migración pendiente, sin carrito, stock, variantes ni pagos. |
 
 ## Tecnologías
 
@@ -61,6 +62,8 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general y galer
 | Vercel | Despliegue previsto. |
 
 No hay Express, registro público ni Prisma en componentes cliente.
+
+La portada pública usa `app/public.css` para separar sus estilos del panel administrativo. `PublicHeader` recibe únicamente los enlaces derivados de `buildPublicNavigation`, incluido Merchandising cuando hay productos visibles; en mobile permite cierre por Escape y al seleccionar un destino. `RevealController` usa un único `IntersectionObserver`, se desactiva con `prefers-reduced-motion` y no impide que el HTML sea visible sin JavaScript. ClickSpark y CurvedLoop no se integraron para mantener el coste cliente y la composición del Hero acotados.
 
 ## Arquitectura
 
@@ -93,7 +96,7 @@ Browser
 
 | Ruta | Propósito |
 | --- | --- |
-| `/` | Página pública con navegación condicional para Carta, Promociones y Sucursales. |
+| `/` | Página pública con navegación condicional para Carta, Promociones, Sucursales, Galería y Merchandising. |
 | `/admin/login` | Acceso administrativo; no debe redirigirse a sí misma. |
 
 ### Panel protegido
@@ -114,6 +117,9 @@ Browser
 | `/admin/content/gallery` | Listado, orden y estado de la galería. |
 | `/admin/content/gallery/new` | Alta de foto o miniatura enlazada a Instagram. |
 | `/admin/content/gallery/[id]/edit` | Edición y reemplazo seguro de imagen. |
+| `/admin/merchandise` | Listado, orden y estado del catálogo de merchandising. |
+| `/admin/merchandise/new` | Creación de un producto con imagen obligatoria. |
+| `/admin/merchandise/[id]/edit` | Edición y reemplazo seguro de imagen. |
 
 ### Route Handlers
 
@@ -140,6 +146,9 @@ Browser
 | `POST /admin/content/gallery/manage` | Crea un elemento y confirma su imagen. |
 | `PUT /admin/content/gallery/manage/[id]` | Edita el elemento y reemplaza su imagen de forma compensada. |
 | `PATCH /admin/content/gallery/manage/[id]/status` | Activa o desactiva un elemento. |
+| `POST /admin/merchandise/manage` | Crea un producto y confirma su imagen. |
+| `PUT /admin/merchandise/manage/[id]` | Edita el producto y reemplaza su imagen de forma compensada. |
+| `PATCH /admin/merchandise/manage/[id]/status` | Activa o desactiva un producto. |
 
 Cada handler que consulta o modifica datos administrativos valida Supabase Auth,
 `AdminUser`, `role = OWNER` e `isActive = true` en el servidor. Logout solo
@@ -147,9 +156,9 @@ destruye la sesión actual y no entrega datos administrativos.
 
 ## Navegación pública condicional
 
-`getPublicSiteData` carga contenido, bowls, promociones, sucursales y galería una sola vez en paralelo. En el servidor se forman `visibleBowls`, `visiblePromotions`, `visibleBranches` y `visibleGallery`; después `buildPublicNavigation` deriva los booleanos `hasBowls`, `hasPromotions`, `hasBranches` y `hasGallery`.
+`getPublicSiteData` carga contenido, bowls, promociones, sucursales, galería y merchandising una sola vez en paralelo. En el servidor se forman las cinco colecciones `visible*`; después `buildPublicNavigation` deriva `hasBowls`, `hasPromotions`, `hasBranches`, `hasGallery` y `hasMerchandise`.
 
-El mismo resultado construye `menuItems` y `sectionIds`, y `app/page.tsx` usa esos booleanos para renderizar las secciones. Carta exige un bowl activo y no archivado; Sucursales una sucursal activa; Promociones una promoción activa; Galería un elemento activo con `imagePath` y, si es video, una URL oficial de Instagram válida. Si una colección está vacía no queda título, contenedor, espacio reservado ni ancla.
+El mismo resultado construye `menuItems` y `sectionIds`, y `app/page.tsx` usa esos booleanos para renderizar las secciones. Merchandising exige un producto activo con `imagePath`; si no existe, no queda enlace, título, contenedor, espacio ni ancla. Las demás secciones conservan sus reglas previas.
 
 Para una futura sección administrable se debe ampliar `selectVisiblePublicContent` y el descriptor de `buildPublicNavigation`. No debe agregarse un enlace estático por separado ni ocultarse la sección con CSS.
 
@@ -169,6 +178,7 @@ La suite `tests/public-navigation.test.ts` cubre los ocho contratos: ausencia/pr
 | `Promotion` | Promoción, fechas opcionales e imagen. |
 | `SiteContent` | Filas legacy más singleton estructurado reservado por `key = site-config`. |
 | `GalleryItem` | Foto o miniatura de Instagram, enlace externo, orden y visibilidad. |
+| `MerchandiseItem` | Producto de vidriera con nombre, descripción opcional, precio, imagen, estado y orden. |
 | `LoginAttempt` | Límite durable de login por hashes de IP y email. |
 | `AdminSessionActivity` | HMAC de sesión administrativa, actividad y vencimientos. |
 | `TemporaryImage` | Estado y rutas server-generated de staging/procesamiento. |
@@ -200,22 +210,26 @@ Cada alta o edición de galería se confirma solo con el botón Guardar de su pr
 | `20260801000000_init` | Aplicada | Esquema inicial, modelos de negocio y restricciones de bowls/promociones. |
 | `20260801000100_enable_row_level_security` | Aplicada | Activa RLS sin políticas en tablas de negocio. |
 | `20260801000200_admin_security_and_temporary_images` | Aplicada | Tablas de seguridad/imágenes, checks y RLS sin políticas. |
-| `20260801000300_add_admin_session_absolute_expiry` | Pendiente | Agrega el vencimiento absoluto de una hora sin reescribir datos existentes. |
-| `20260804000100_add_promotion_weekly_schedule` | Pendiente | Agrega días y franja horaria semanal a promociones. |
-| `20260804000200_add_site_content_and_gallery` | Pendiente | Amplía `SiteContent`, crea el singleton y `GalleryItem`, agrega el destino de imagen y habilita RLS. |
+| `20260801000300_add_admin_session_absolute_expiry` | Aplicada | Agrega el vencimiento absoluto de una hora sin reescribir datos existentes. |
+| `20260804000100_add_promotion_weekly_schedule` | Aplicada | Agrega días y franja horaria semanal a promociones. |
+| `20260804000200_add_site_content_and_gallery` | Aplicada | Amplía `SiteContent`, crea el singleton y `GalleryItem`, agrega el destino de imagen y habilita RLS. |
+| `20260819000100_add_merchandise` | Pendiente | Agrega `MERCHANDISE` al destino temporal, crea `MerchandiseItem`, su índice, check de precio positivo y RLS sin políticas. |
 
-El estado de las tres primeras se verificó el 2026-08-03 mediante una consulta
-de solo lectura a `_prisma_migrations`. Nunca modificar una migración aplicada.
-La migración 003 calcula `absoluteExpiresAt = createdAt + 1 hour` para las
-sesiones existentes antes de marcar la columna como obligatoria.
+Antes de crear merchandising, `npx prisma migrate status` confirmó las seis
+migraciones previas aplicadas. Después de crear la migración aditiva, Prisma
+encontró siete migraciones y señaló únicamente `20260819000100_add_merchandise`
+como no aplicada.
+Nunca modificar una migración aplicada. La migración 003 calcula
+`absoluteExpiresAt = createdAt + 1 hour` para las sesiones existentes antes de
+marcar la columna como obligatoria.
 
-Para aplicar la pendiente, con autorización explícita:
+Para consultar el estado sin aplicar cambios:
 
 ```bash
-npx prisma migrate deploy
+npx prisma migrate status
 ```
 
-No usar `migrate dev`, `db push` ni reset contra Supabase sin autorización.
+No usar `migrate deploy`, `migrate dev`, `db push` ni reset contra Supabase sin autorización.
 
 ## Autenticación, autorización y sesión
 
@@ -281,10 +295,10 @@ No se conceden permisos directos de select/list/insert/update/delete a `anon` o
 objeto. La service role se usa únicamente desde el servidor para Storage. El SQL
 manual de auditoría y políticas restrictivas está en `docs/STORAGE_SECURITY.sql`.
 
-Auditoría read-only del 2026-08-10: `storage.objects` no tiene políticas;
-`revuelto-temp` es privado, permite JPEG/PNG/WebP y debe reducirse de 10 a 5 MB;
-`bucket-media` es público, ya limita 5 MB y debe ampliar sus MIME desde solo WebP
-a JPEG/PNG/WebP. Estos dos cambios de bucket quedan manuales en Dashboard.
+Los buckets fueron revisados y corregidos manualmente: `revuelto-temp` es privado
+y `bucket-media` es público para lectura; ambos limitan 5 MB y aceptan
+JPEG/PNG/WebP. La aplicación conserva los archivos originales validados y no los
+convierte automáticamente a WebP.
 
 ### Flujo
 
@@ -335,7 +349,7 @@ Copiar `.env.example` a `.env.local`; nunca versionar valores reales.
 | `TURNSTILE_SECRET_KEY` | Privada | Verificación Siteverify en servidor. |
 | `TURNSTILE_EXPECTED_HOSTNAME` | Privada/configuración | Hostname que el servidor exige en la respuesta. |
 | `CRON_SECRET` | Privada | Bearer aleatorio de 16+ caracteres para Vercel Cron; nunca `NEXT_PUBLIC`. |
-| `SENTRY_DSN` | Privada | DSN usada por servidor y edge; configurar en Vercel. |
+| `SENTRY_DSN` | Privada | DSN usada por servidor y edge; configurada localmente sin documentar su valor. |
 | `NEXT_PUBLIC_SENTRY_DSN` | Pública | DSN de ingesta para capturar errores del navegador; no es un token de cuenta. |
 
 Ningún Client Component lee `process.env.TURNSTILE_SITE_KEY` directamente.
@@ -366,7 +380,7 @@ npx prisma validate
 ```
 
 `postinstall` ejecuta `prisma generate`. El build y TypeScript deben pasar antes
-de desplegar. Las 84 pruebas actuales validan los CRUD de bowls, sucursales, promociones y contenido,
+de desplegar. Las 95 pruebas actuales validan los CRUD de bowls, sucursales, promociones, contenido y merchandising,
 la galería, URLs de Instagram, imágenes, navegación pública condicional, HMAC/normalización,
 bloqueo, límite absoluto de sesión e imágenes.
 
@@ -377,15 +391,14 @@ bloqueo, límite absoluto de sesión e imágenes.
 3. Aplicar migraciones revisadas desde un entorno autorizado antes del deploy
    que use el nuevo esquema.
 4. Crear buckets y configurar Turnstile para hostnames de cada entorno.
-5. Configurar `CRON_SECRET`; `vercel.json` registrará el cron diario en el deploy de producción.
+5. Mantener `CRON_SECRET` configurado fuera de Git. `vercel.json` fue validado y registra el cron diario en producción.
 
 ## Próxima etapa
 
-- Aplicar la migración 003 tras revisión.
-- Crear/configurar los buckets de Storage y Turnstile en producción.
-- Aplicar, después de revisión y autorización, la migración de contenido y galería.
+- Revisar y aplicar, solo con autorización explícita, `20260819000100_add_merchandise`.
+- Probar manualmente el dashboard, merchandising y los ajustes visuales acotados de la home.
 - Añadir pruebas de integración contra un entorno de prueba aislado.
-- Verificar el primer cron de limpieza y monitorear sus resultados en Vercel.
+- Continuar monitoreando las ejecuciones del cron de limpieza en Vercel.
 
 ## Mantenimiento documental
 

@@ -1,10 +1,12 @@
 import { isPublicGalleryItem } from "@/lib/gallery/schema";
+import { isPublicMerchandiseItem } from "@/lib/merchandise/schema";
 
 export const PUBLIC_SECTION_IDS = {
   bowls: "carta",
   promotions: "promociones",
   branches: "sucursales",
   gallery: "galeria",
+  merchandise: "merchandising",
 } as const;
 
 type BowlVisibility = {
@@ -37,12 +39,14 @@ export function selectVisiblePublicContent<
   TBranch extends BranchVisibility,
   TPromotion extends PromotionVisibility,
   TGallery extends Parameters<typeof isPublicGalleryItem>[0],
+  TMerchandise extends Parameters<typeof isPublicMerchandiseItem>[0],
 >(
   data: {
     bowls: readonly TBowl[];
     branches: readonly TBranch[];
     promotions: readonly TPromotion[];
     gallery?: readonly TGallery[];
+    merchandise?: readonly TMerchandise[];
   },
 ) {
   return {
@@ -50,6 +54,7 @@ export function selectVisiblePublicContent<
     visibleBranches: data.branches.filter(isPublicBranch),
     visiblePromotions: data.promotions.filter(isPublicPromotion),
     visibleGallery: (data.gallery ?? []).filter(isPublicGalleryItem),
+    visibleMerchandise: (data.merchandise ?? []).filter(isPublicMerchandiseItem),
   };
 }
 
@@ -58,11 +63,13 @@ export function buildPublicNavigation(data: {
   visibleBranches: readonly unknown[];
   visiblePromotions: readonly unknown[];
   visibleGallery?: readonly unknown[];
+  visibleMerchandise?: readonly unknown[];
 }) {
   const hasBowls = data.visibleBowls.length > 0;
   const hasBranches = data.visibleBranches.length > 0;
   const hasPromotions = data.visiblePromotions.length > 0;
   const hasGallery = (data.visibleGallery?.length ?? 0) > 0;
+  const hasMerchandise = (data.visibleMerchandise?.length ?? 0) > 0;
 
   const visibleSections = [
     hasBowls
@@ -89,9 +96,16 @@ export function buildPublicNavigation(data: {
           label: "Galería",
         }
       : null,
+    hasMerchandise
+      ? {
+          id: PUBLIC_SECTION_IDS.merchandise,
+          href: `#${PUBLIC_SECTION_IDS.merchandise}`,
+          label: "Merchandising",
+        }
+      : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   const menuItems = visibleSections.map(({ id, href, label }) => ({ id, href, label }));
   const sectionIds = visibleSections.map(({ id }) => id);
 
-  return { hasBowls, hasBranches, hasPromotions, hasGallery, menuItems, sectionIds };
+  return { hasBowls, hasBranches, hasPromotions, hasGallery, hasMerchandise, menuItems, sectionIds };
 }

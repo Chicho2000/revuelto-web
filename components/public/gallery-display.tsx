@@ -20,7 +20,7 @@ type GalleryDisplayItem = {
   externalUrl: string | null;
 };
 
-function GalleryCard({ item }: { item: GalleryDisplayItem }) {
+function GalleryCard({ item, isActive = true }: { item: GalleryDisplayItem; isActive?: boolean }) {
   const linkProps = getSafeGalleryLinkProps(item);
   const card = (
     <article className="gallery-card">
@@ -43,6 +43,7 @@ function GalleryCard({ item }: { item: GalleryDisplayItem }) {
     <a
       className="gallery-link"
       {...linkProps}
+      tabIndex={isActive ? undefined : -1}
       aria-label={item.type === "INSTAGRAM_VIDEO" ? `Abrir ${item.title || "video"} en Instagram` : undefined}
     >
       {card}
@@ -97,7 +98,7 @@ export function GalleryDisplay({ items }: { items: GalleryDisplayItem[] }) {
         <div className="gallery-carousel-track" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
           {items.map((item, index) => (
             <div className="gallery-carousel-slide" key={item.id} aria-hidden={index !== currentIndex}>
-              <GalleryCard item={item} />
+              <GalleryCard item={item} isActive={index === currentIndex} />
             </div>
           ))}
         </div>

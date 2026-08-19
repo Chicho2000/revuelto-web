@@ -32,6 +32,8 @@ function targetSegment(target: TemporaryImageTarget) {
       return "branches";
     case TemporaryImageTarget.GALLERY:
       return "gallery";
+    case TemporaryImageTarget.MERCHANDISE:
+      return "merchandise";
   }
 }
 

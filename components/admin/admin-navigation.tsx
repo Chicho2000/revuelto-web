@@ -8,6 +8,7 @@ const links = [
   { href: "/admin/promotions", label: "Promociones" },
   { href: "/admin/branches", label: "Sucursales" },
   { href: "/admin/content", label: "Contenido" },
+  { href: "/admin/merchandise", label: "Merchandising" },
 ];
 
 export function AdminNavigation({ name }: { name: string }) {

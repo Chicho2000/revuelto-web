@@ -9,6 +9,7 @@ import { sortPublicPromotions } from "@/lib/promotions/schema";
 import { getSiteContent } from "@/lib/content/service";
 import type { SiteContentInput } from "@/lib/content/schema";
 import { getPublicGalleryImageUrl } from "@/lib/gallery/public-image";
+import { getPublicMerchandiseImageUrl } from "@/lib/merchandise/public-image";
 import { reportUnexpectedServerError } from "@/lib/observability/server-errors";
 
 export type PublicSiteData =
@@ -21,6 +22,7 @@ export type PublicSiteData =
       visiblePromotions: Awaited<ReturnType<typeof getPromotions>>;
       visibleBranches: Awaited<ReturnType<typeof getBranches>>;
       visibleGallery: Awaited<ReturnType<typeof getGallery>>;
+      visibleMerchandise: Awaited<ReturnType<typeof getMerchandise>>;
       navigation: ReturnType<typeof buildPublicNavigation>;
     };
 
@@ -76,20 +78,35 @@ async function getGallery() {
   }
 }
 
+async function getMerchandise() {
+  try {
+    const items = await getPrisma().merchandiseItem.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    });
+    return items.map((item) => ({ ...item, imageUrl: getPublicMerchandiseImageUrl(item.imagePath) }));
+  } catch (error) {
+    const tableMissing = typeof error === "object" && error !== null && "code" in error && error.code === "P2021";
+    if (tableMissing) return [];
+    throw error;
+  }
+}
+
 async function loadPublicSiteData(): Promise<PublicSiteData> {
   if (!hasDatabaseRuntimeConfiguration()) return { status: "configuration" };
 
   try {
-    const [content, bowls, promotions, branches, gallery] = await Promise.all([
+    const [content, bowls, promotions, branches, gallery, merchandise] = await Promise.all([
       getSiteContent(),
       getBowls(),
       getPromotions(),
       getBranches(),
       getGallery(),
+      getMerchandise(),
     ]);
 
     const visibleContent = selectVisiblePublicContent(
-      { bowls, promotions, branches, gallery },
+      { bowls, promotions, branches, gallery, merchandise },
     );
     const navigation = buildPublicNavigation(visibleContent);
 

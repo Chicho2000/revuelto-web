@@ -31,6 +31,7 @@ enum TemporaryImageTarget {
   PROMOTION
   BRANCH
   GALLERY
+  MERCHANDISE
 }
 
 enum GalleryItemType {
@@ -236,6 +237,20 @@ model GalleryItem {
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+
+  @@index([isActive, sortOrder, createdAt])
+}
+
+model MerchandiseItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  imagePath   String
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([isActive, sortOrder, createdAt])
 }

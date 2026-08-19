@@ -1,8 +1,8 @@
 # Contexto técnico de Revuelto
 
-Actualizado: 2026-08-12. Este documento contiene estado comprobado y decisiones; `AGENTS.md` conserva las reglas obligatorias.
+Actualizado: 2026-08-19. Este documento contiene estado comprobado y decisiones; `AGENTS.md` conserva las reglas obligatorias.
 
-Dedicación informada desde el último push (`dd71a77`): **aproximadamente 5 horas y 30 minutos de trabajo**.
+Commit actual verificado: `40b93b1` (`feat: refuerza seguridad, Storage y observabilidad`). La dedicación informada para el trabajo incorporado entre `dd71a77` y este commit fue de **aproximadamente 5 horas y 30 minutos**.
 
 Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md).
 
@@ -17,15 +17,15 @@ Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.m
 ## Estado actual
 
 - Stack activo: Next.js 16 App Router, React 19, TypeScript estricto, Tailwind, Prisma 7/PostgreSQL en Supabase, Supabase Auth/Storage, Zod, Sharp, ESLint y Vercel.
-- Funciona la página pública `/`, cuyo menú y secciones de carta, promociones, sucursales y galería aparecen solo cuando tienen contenido público válido. También funcionan el login `/admin/login` y el panel protegido `/admin`. `/admin/bowls`, `/admin/branches`, `/admin/promotions` y `/admin/content` tienen administración OWNER; contenido general usa un singleton estructurado y galería admite fotos o miniaturas enlazadas a Instagram, sin subir ni reproducir videos.
+- Funciona la página pública `/`, cuyo menú y secciones de carta, promociones, sucursales, galería y merchandising aparecen solo cuando tienen contenido público válido. También funcionan el login `/admin/login` y el panel protegido `/admin`, ahora organizado como dashboard de accesos directos. `/admin/bowls`, `/admin/branches`, `/admin/promotions`, `/admin/content` y `/admin/merchandise` tienen administración OWNER; merchandising es una vidriera simple sin carrito, stock, variantes ni pagos.
 - Integraciones activas: Prisma en servidor, Supabase Auth, protección de rutas, rate limiting persistente, Turnstile obligatorio e infraestructura de imágenes de staging. No hay datos mock como fallback.
-- Rutas de infraestructura: login/logout/actividad, intención-completado-descarte de imágenes y handlers protegidos bajo `/admin/bowls/manage`, `/admin/branches/manage` y `/admin/promotions/manage`. Promociones admite crear, editar y cambiar estado; no admite borrado.
-- Migraciones aplicadas, verificadas el 2026-08-03 mediante consulta de solo lectura a `_prisma_migrations`: `20260801000000_init`, `20260801000100_enable_row_level_security` y `20260801000200_admin_security_and_temporary_images`. Esta última activa RLS sin políticas para las tres tablas sensibles. No se reescriben migraciones aplicadas.
-- `20260801000300_add_admin_session_absolute_expiry` es la nueva migración pendiente: añade el vencimiento absoluto de una hora a sesiones administrativas y conserva las sesiones existentes calculándolo desde `createdAt`. Se redactó offline como SQL aditivo; no se ejecutó `migrate dev`, `migrate deploy`, `db push`, reset ni ninguna conexión de escritura a Supabase.
-- `20260804000100_add_promotion_weekly_schedule` también está pendiente y debe ejecutarse después de la anterior: agrega a `Promotion` días recurrentes y una franja horaria diaria opcional, con valores compatibles para las filas existentes y restricciones `CHECK` de par, formato y orden de horas. Fue redactada manualmente a partir del cambio validado en `schema.prisma`; no se aplicó ni se modificó el historial existente.
-- `20260804000200_add_site_content_and_gallery` está pendiente y debe ejecutarse después de las anteriores: amplía aditivamente `SiteContent`, crea el singleton `site-config`, agrega `GalleryItem`/`GalleryItemType`, habilita RLS sin políticas y agrega `GALLERY` a `TemporaryImageTarget`. Conserva las filas editoriales legacy y copia `hero`/`about` al singleton cuando existen. No fue aplicada.
-- Buckets auditados en modo read-only el 2026-08-10: `revuelto-temp` es privado, permite 10 MB y JPEG/PNG/WebP; debe bajarse manualmente a 5 MB. `bucket-media` es público y ya limita 5 MB, pero permite solo WebP; debe habilitar manualmente JPEG/PNG/WebP para conservar formatos originales. `pg_policies` no devolvió ninguna política sobre `storage.objects`, por lo que hoy no existe una política permisiva que eliminar. La aplicación no crea ni reconfigura buckets.
-- El endpoint interno de limpieza y su schedule diario están definidos; para activarlo falta configurar `CRON_SECRET` en Vercel y desplegar. Los formularios complejos usan React Hook Form y Zod.
+- Rutas de infraestructura: login/logout/actividad, intención-completado-descarte de imágenes y handlers protegidos bajo `/admin/bowls/manage`, `/admin/branches/manage`, `/admin/promotions/manage` y `/admin/merchandise/manage`. Promociones y merchandising admiten crear, editar y cambiar estado; no admiten borrado.
+- Las seis migraciones previas están aplicadas. `20260819000100_add_merchandise` es una migración aditiva nueva y pendiente que agrega el modelo de catálogo y `MERCHANDISE` a `TemporaryImageTarget`. `npx prisma migrate status` encontró siete migraciones y señaló únicamente esta como no aplicada. No se ejecutó `migrate deploy`, `migrate dev`, `db push` ni reset.
+- Los buckets fueron corregidos y revisados manualmente: `revuelto-temp` es privado y `bucket-media` es público para lectura; ambos limitan archivos a 5 MB y aceptan JPEG, PNG y WebP. La aplicación conserva el formato original validado y no convierte automáticamente a WebP. La aplicación no crea ni reconfigura buckets.
+- Sentry está configurado en `.env.local`, sanitizado y funcionando. La ruta temporal `/api/dev/test-sentry` usada para comprobar la integración fue eliminada.
+- `CRON_SECRET` está configurado. La auditoría del cron quedó completada: el endpoint devuelve 401 sin secreto o con uno incorrecto, `vercel.json` fue validado y al auditar había 0 registros `TemporaryImage` candidatos a limpieza.
+- Los formularios complejos usan React Hook Form y Zod.
+- La home pública integra un rediseño visual selectivo: `PublicHeader` sticky con menú mobile accesible, `RevealController` progresivo y una hoja `app/public.css`. Mantiene la misma fuente de datos, navegación condicional y sección de Merchandising; ClickSpark y CurvedLoop se descartaron para no agregar interacción decorativa cliente.
 
 Variables por nombre: `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SECURITY_HMAC_SECRET`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_EXPECTED_HOSTNAME`, `CRON_SECRET`, `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`.
 
@@ -35,7 +35,7 @@ Variables por nombre: `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_URL`, 
 
 Next.js entrega interfaz y Route Handlers; no existe Express. Prisma se usa exclusivamente desde módulos `server-only`. Supabase Auth identifica usuarios; Prisma lee `AdminUser` y exige `role = OWNER` e `isActive = true` en cada página, Route Handler o acción protegida. El proxy refresca/verifica la sesión, permite siempre `/admin/login`, redirige solo navegación privada y deja pasar los handlers sensibles para que respondan JSON 401/403 mediante su propia autorización; no decide roles.
 
-La carga pública consulta una sola vez cada conjunto en paralelo y produce `visibleBowls`, `visiblePromotions`, `visibleBranches` y `visibleGallery`. `buildPublicNavigation` deriva `hasBowls`, `hasPromotions`, `hasBranches`, `hasGallery`, `menuItems` y `sectionIds` desde esas mismas colecciones. `app/page.tsx` usa esos booleanos tanto para el menú como para renderizar las secciones; por eso no existen enlaces, títulos, contenedores ni anclas para colecciones vacías. Un video de galería solo es público si está activo, tiene imagen y conserva una URL HTTPS válida de una publicación/Reel oficial de Instagram. Las promociones son públicas si y solo si están activas; su programación semanal es informativa.
+La carga pública consulta una sola vez cada conjunto en paralelo y produce `visibleBowls`, `visiblePromotions`, `visibleBranches`, `visibleGallery` y `visibleMerchandise`. `buildPublicNavigation` deriva los cinco booleanos `has*`, `menuItems` y `sectionIds` desde esas mismas colecciones. `app/page.tsx` usa esos booleanos tanto para el menú como para renderizar las secciones; por eso no existen enlaces, títulos, contenedores ni anclas para colecciones vacías. Un producto de merchandising solo es público si está activo y tiene imagen. Un video de galería además exige una URL HTTPS oficial válida. Las promociones son públicas si y solo si están activas; su programación semanal es informativa.
 
 El login llega temporalmente al Route Handler y se envía directamente a Supabase Auth; contraseñas no se registran, guardan ni hashean en la aplicación. Tras Auth, una cuenta sin OWNER activo se cierra de inmediato y recibe una respuesta genérica. Los usuarios de Supabase Auth no se crean, editan, eliminan ni prueban automáticamente por la aplicación.
 
@@ -47,7 +47,7 @@ La service role se lee exclusivamente en `lib/supabase/storage-admin.ts`, que es
 
 ## Flujo de imágenes
 
-1. Un OWNER con sesión administrativa solicita intención para BOWL, PROMOTION, BRANCH o GALLERY. El navegador no elige bucket, owner, prefijo, nombre ni destino final.
+1. Un OWNER con sesión administrativa solicita intención para BOWL, PROMOTION, BRANCH, GALLERY o MERCHANDISE. El navegador no elige bucket, owner, prefijo, nombre ni destino final.
 2. El servidor crea `TemporaryImage` y una URL firmada para un único `staging/{ownerId}/{uuid}` del bucket privado `revuelto-temp`. La intención se acepta durante diez minutos; no se procesa staging expirado.
 3. El browser recibe el original por selección o arrastre y lo sube directamente al staging indicado, sin elegir bucket, nombre ni ruta final.
 4. El servidor descarga y valida peso real, JPEG/PNG/WebP real, 5 MB, 6000×6000, 24 MP y un solo frame/página para todos los destinos. SVG, GIF, TIFF, BMP, HEIC, PDF y animados son rechazados.
@@ -55,7 +55,8 @@ La service role se lee exclusivamente en `lib/supabase/storage-admin.ts`, que es
 6. El CRUD de bowls prepara la copia final, ejecuta Bowl + ambos tamaños mediante un nested write atómico, confirma el temporal y recién después borra la imagen anterior. Si falla la base, revierte la copia nueva sin tocar la anterior.
 7. Promociones reutiliza el mismo workflow compensado: finales en `promotions/{promotionId}/{uuid}.{ext}`; al reemplazar conserva la anterior hasta confirmar la nueva y al quitar actualiza primero PostgreSQL.
 8. Galería reutiliza el workflow compensado: finales en `gallery/{galleryItemId}/{uuid}.{ext}`. El reemplazo actualiza primero la base y solo después elimina la imagen anterior.
-9. `GET /api/internal/cleanup-temporary-images`, protegido por `CRON_SECRET`, procesa hasta 500 registros vencidos por ejecución. Borra Storage temporal y el registro abandonado; si ya existe `finalPath`, solo limpia temporales y marca `CONFIRMED`. Rutas no asociables quedan pendientes y objetos sin registro no se enumeran ni borran automáticamente. `vercel.json` lo programa a las 03:00 UTC diariamente.
+9. Merchandising reutiliza el mismo workflow: finales en `merchandise/{merchandiseId}/{uuid}.{ext}`; reemplazo conserva la anterior hasta confirmar la nueva y cancelar descarta el temporal.
+10. `GET /api/internal/cleanup-temporary-images`, protegido por `CRON_SECRET`, procesa hasta 500 registros vencidos por ejecución. Borra Storage temporal y el registro abandonado; si ya existe `finalPath`, solo limpia temporales y marca `CONFIRMED`. Rutas no asociables quedan pendientes y objetos sin registro no se enumeran ni borran automáticamente. `vercel.json` lo programa a las 03:00 UTC diariamente.
 
 La URL firmada se limita al objeto generado por servidor. Su duración efectiva depende de Supabase; además del vencimiento de proveedor, la aplicación limita la intención a diez minutos y no procesa objetos expirados.
 
@@ -81,6 +82,7 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 | 2026-08-04 | Contenido singleton y galería enlazada | La clave única reservada `site-config` identifica la única fila activa de contenido sin eliminar las filas legacy. La galería guarda imágenes procesadas y, para videos, solo miniatura más enlace HTTPS oficial de Instagram. | `prisma/schema.prisma`, `lib/content/*`, `lib/gallery/*`, `app/admin/**/content/*` |
 | 2026-08-07 | Carrusel de galería | Con cuatro o más elementos públicos, la galería rota cada cinco segundos y conserva controles accesibles; hasta tres se usa grilla. Cada alta o edición se persiste únicamente con el botón Guardar de su propio formulario. | `components/admin/gallery/gallery-item-form.tsx`, `components/public/gallery-display.tsx`, `lib/gallery/carousel.ts` |
 | 2026-08-08 | Validar imágenes sin transformarlas y limpiar temporales diariamente | Los archivos no conformes se rechazan; los aceptados conservan bytes, formato, resolución y metadata. El cron protegido elimina solo temporales vencidos asociables y nunca recursos finales. | `lib/images/*`, `app/api/internal/cleanup-temporary-images/route.ts`, `vercel.json` |
+| 2026-08-19 | Merchandising como catálogo simple | Se reutilizan Zod, React Hook Form, autorización OWNER y el workflow de imágenes compensado; no se agrega slug porque no existen páginas individuales ni URLs por producto. La web lo oculta por completo si no hay productos activos. | `lib/merchandise/*`, `app/admin/**/merchandise/*`, `app/page.tsx` |
 | 2026-08-01 | No gestionar Auth users | Protege las cuentas creadas manualmente y separa identidad/autorización. | `lib/auth.ts` |
 
 ## Base de datos
@@ -91,6 +93,7 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 - `Promotion`: promoción y programación semanal recurrente opcional mediante días y una franja horaria de Argentina. Conserva columnas de fechas históricas, que no usa el producto actualmente.
 - `SiteContent`: conserva filas editoriales legacy y usa `key = site-config` como singleton estructurado de textos, contacto, footer y SEO.
 - `GalleryItem`: imagen o miniatura de Instagram, enlace externo validado, orden y estado.
+- `MerchandiseItem`: nombre, descripción opcional, precio positivo, imagen, estado, orden y timestamps; no contiene stock, variantes ni datos de compra.
 - `LoginAttempt`: rate limit por hashes, sin datos personales en claro.
 - `AdminSessionActivity`: HMAC de cookie administrativa, vencimiento inactivo y máximo absoluto de una hora.
 - `TemporaryImage`: staging, temporal, estado, propietario y metadatos validados.
@@ -100,14 +103,14 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 1. Crear las variables anteriores sin versionar valores; generar `SECURITY_HMAC_SECRET` aleatorio de 32+ caracteres.
 2. Mantener `revuelto-temp` privado y `bucket-media` público. Revisar y ejecutar manualmente [`STORAGE_SECURITY.sql`](./STORAGE_SECURITY.sql): niega acceso directo a ambos buckets para `anon`/`authenticated`; la lectura pública queda solo por la URL pública de finales.
 3. En Cloudflare Turnstile crear el widget, permitir hostnames local/producción, usar action `admin-login` y configurar las tres variables de Turnstile. La Secret Key no sale del servidor.
-4. Revisar y, solo cuando sea autorizado, aplicar en orden `20260801000300_add_admin_session_absolute_expiry`, `20260804000100_add_promotion_weekly_schedule` y `20260804000200_add_site_content_and_gallery`. Las tres migraciones iniciales ya figuran aplicadas.
-5. Configurar `CRON_SECRET` aleatorio de 16+ caracteres en Vercel. El cron diario ya está declarado en `vercel.json`; Vercel enviará el secreto como Bearer al endpoint interno.
+4. Antes de cualquier cambio futuro de esquema, ejecutar `npx prisma migrate status` y tomar su resultado como fuente de verdad. Al 2026-08-19 las seis migraciones previas están aplicadas y `20260819000100_add_merchandise` está pendiente. No ejecutar `migrate deploy`, `migrate dev`, `db push` ni reset sin autorización explícita.
+5. Mantener `CRON_SECRET` fuera de Git. El cron diario está declarado y validado en `vercel.json`; su endpoint rechaza solicitudes sin secreto o con secreto incorrecto.
 6. Probar manualmente el CRUD de bowls: alta con dos precios, slug duplicado, edición, estado, selección, arrastre, cambio y cancelación de imagen, y límites 5 MB/6000×6000/24 MP. Para borrar, cancelar primero, luego intentar con un nombre distinto y finalmente escribir exactamente el nombre; verificar que sus tamaños desaparezcan.
 7. Probar el CRUD de sucursales: alta/edición, siete días, abiertos/cerrados, validación de horas, teléfono opcional, activación/desactivación y visibilidad pública. Para borrar, repetir la confirmación exacta y verificar que sus horarios desaparezcan. Mantener además las pruebas manuales de login y sesión. Nunca cambiar ni probar automáticamente contraseñas reales.
 8. Probar la navegación pública en escritorio y celular alternando contenido activo/inactivo: cada enlace Carta, Promociones o Sucursales debe aparecer junto con su sección y desaparecer con ella.
 9. Probar promociones: desactivar la demo actual y comprobar que desaparezcan menú/sección; crear y editar una promoción; activar/desactivar; cargar, reemplazar, quitar y cancelar imagen. Una promoción activa debe mostrarse aun fuera de su franja, junto con el texto de días y horario; una inactiva no debe mostrar tarjeta, menú ni sección. Probar días completos sin horas y horario diario sin días. Los rangos que cruzan medianoche deben rechazarse. Tras un cambio de esquema, detener y volver a iniciar el servidor; `npm run dev` ejecuta `prisma generate` antes de iniciar Next. El seed quedó configurado para futuras ejecuciones con la demo inactiva, pero no se ejecutó ni se alteró la fila actual.
 
-Pruebas realizadas el 2026-08-11: `npx prisma generate`, `npx prisma validate`, `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm audit` y `git diff --check`. La suite suma 84 pruebas, incluidas autorización de handlers, separación proxy/handler, preservación de JPEG/PNG/WebP, formatos y dimensiones rechazados, cron, temporales, rate limit, sanitización Sentry y errores genéricos. No se usaron contraseñas ni se modificaron cuentas.
+Pruebas realizadas el 2026-08-19: `npx prisma generate`, `npx prisma validate`, `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build` y `git diff --check`. La suite suma 95 pruebas e incluye merchandising, autorización de handlers, navegación condicional, preservación de JPEG/PNG/WebP, cron, temporales, rate limit, sanitización Sentry y errores genéricos. No se usaron contraseñas ni se modificaron cuentas.
 
 Verificación HTTP local sobre el build de producción: sin cookies, `/admin/bowls` redirige 307 al login y los handlers de bowls (alta/edición/estado), promociones, sucursales, contenido, galería e imágenes responden 401. El cron sin Bearer también responde 401. No se invocó el cron con secreto ni se ejecutó ninguna mutación real.
 
@@ -122,14 +125,14 @@ Verificación local adicional del 2026-08-04: `GET http://localhost:3000/` respo
 - AuthVerify no se incorporó: no es una dependencia instalada ni se proporcionó una API que valide correctamente el JWT/sesión emitido por Supabase. Supabase Auth más `AdminUser` OWNER activo mantiene una única fuente de verdad.
 - No se agrega CORS permisivo. La ausencia de `Access-Control-Allow-Origin` bloquea llamadas cross-origin en navegadores, pero no es una barrera de seguridad: cada endpoint mantiene autenticación y autorización del servidor.
 
-### Configuración manual pendiente
+### Configuración manual verificada
 
-1. En Supabase Storage, bajar `revuelto-temp` de 10 MB a 5 MB y ampliar `bucket-media` de solo WebP a `image/jpeg`, `image/png`, `image/webp`. Visibilidad y MIME del temporal ya son correctos; el límite de 5 MB y visibilidad del final también. Hoy `storage.objects` no tiene políticas. Revisar y, si se desea defensa restrictiva explícita, aplicar manualmente `docs/STORAGE_SECURITY.sql`. No se cambiaron buckets ni políticas desde el código.
-2. Crear un proyecto Next.js en Sentry y cargar en Vercel `SENTRY_DSN` para servidor/edge y `NEXT_PUBLIC_SENTRY_DSN` para navegador. El segundo es un identificador de ingesta público, no un token; no exponer nunca `SENTRY_AUTH_TOKEN` ni claves de Storage.
-3. Agregar `CRON_SECRET` en desarrollo/Vercel y desplegar `vercel.json`. Para verificar manualmente, invocar el endpoint con `Authorization: Bearer <CRON_SECRET>` y comprobar una respuesta `cleanup`; sin header debe responder 401.
+1. Supabase Storage fue revisado manualmente: `revuelto-temp` es privado y `bucket-media` es público para lectura; ambos tienen límite de 5 MB y MIME JPEG/PNG/WebP. Se conservan los archivos originales validados sin conversión automática. El SQL de auditoría y políticas restrictivas se conserva en `docs/STORAGE_SECURITY.sql`.
+2. Sentry está configurado en `.env.local`, sanitizado y probado. La ruta temporal de prueba ya no existe. `NEXT_PUBLIC_SENTRY_DSN` es un identificador público de ingesta; nunca exponer `SENTRY_AUTH_TOKEN` ni claves de Storage.
+3. `CRON_SECRET` está configurado y `vercel.json` fue validado. El endpoint se auditó con ausencia de secreto y secreto incorrecto, ambos con respuesta 401; en la auditoría había 0 candidatos a cleanup.
 
 ## Pendientes
 
-- Configurar `CRON_SECRET` y verificar el primer cron de limpieza en Vercel.
-- Revisar y aplicar las tres migraciones pendientes antes de probar en base real la expiración absoluta, la programación semanal, el contenido singleton y la galería.
+- Revisar y, solo con autorización explícita, aplicar `20260819000100_add_merchandise` antes de probar el CRUD contra la base real.
+- Probar manualmente dashboard, CRUD de merchandising, navegación condicional, grilla 3/2/1, título crema y el intercambio de ilustraciones.
 - Añadir integración contra un entorno de prueba aislado, nunca cuentas o datos reales.

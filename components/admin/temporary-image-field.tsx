@@ -33,7 +33,7 @@ export type TemporaryImageFieldHandle = {
 export const TemporaryImageField = forwardRef<
   TemporaryImageFieldHandle,
   {
-    target: "BOWL" | "PROMOTION" | "GALLERY";
+    target: "BOWL" | "PROMOTION" | "GALLERY" | "MERCHANDISE";
     label: string;
     previewAlt: string;
     initialImageUrl?: string | null;
