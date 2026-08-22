@@ -1,6 +1,6 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-08-19.
+Actualizada: 2026-08-22.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
@@ -12,7 +12,8 @@ usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
 - Proyecto: Revuelto.
 - Responsable que reporta la dedicación: Ciro Pregot.
 - Trabajo acumulado informado antes de iniciar la ETAPA 2: **6 horas y 30 minutos**.
-- Trabajo incorporado entre `dd71a77` y el commit actual verificado `40b93b1`: **aproximadamente 5 horas y 30 minutos**.
+- Trabajo incorporado entre `dd71a77` y `40b93b1`: **aproximadamente 5 horas y 30 minutos**.
+- Commit actual verificado: `6b5b0ab`; el sistema de pedidos permanece como cambio local sin commit ni push.
 - Dedicación acumulada informada hasta esta actualización: **aproximadamente 12 horas**.
 
 Este registro refleja el tiempo informado por Ciro para el alcance construido
@@ -33,14 +34,16 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Login y autorización OWNER | Implementados. |
 | Rate limiting y Turnstile | Implementados. |
 | Sesión administrativa | Implementada: 30 min inactiva o 1 h absoluta. |
-| Modelo Prisma y RLS | Implementados; seis migraciones aplicadas y la nueva migración aditiva de merchandising pendiente. |
+| Modelo Prisma y RLS | Siete migraciones aplicadas; la migración aditiva de pedidos y rate limit público está pendiente. |
 | Storage y procesamiento de imágenes | Infraestructura implementada; buckets revisados y corregidos a 5 MB con JPEG/PNG/WebP. |
 | CRUD de bowls | Implementado con dos tamaños, estado, imágenes seguras y borrado definitivo confirmado por nombre. |
 | CRUD de sucursales y horarios | Implementado con siete días, estado, teléfono opcional y borrado definitivo confirmado por nombre. |
 | CRUD de promociones | Implementado con fechas opcionales, estado e imágenes seguras; sin eliminación definitiva. |
 | CRUD de contenido | Implementado con singleton estructurado, contacto, redes, footer y SEO. |
 | Galería multimedia | Implementada con fotos y miniaturas enlazadas a Instagram; sin video alojado ni embeds. |
-| Merchandising | Catálogo administrable implementado; migración pendiente, sin carrito, stock, variantes ni pagos. |
+| Merchandising | Catálogo administrable integrado al carrito; sin stock, variantes ni checkout individual. |
+| Pedidos web | Carrito local de bowls/merchandising, recálculo servidor, sucursal, efectivo/transferencia y apertura de WhatsApp implementados. No es un sistema interno de pedidos. |
+| Mercado Pago | Configuración prevista, pero integración real, credenciales, Checkout Pro, webhook y confirmación de pago no implementados. |
 
 ## Tecnologías
 
@@ -70,6 +73,7 @@ La portada pública usa `app/public.css` para separar sus estilos del panel admi
 ```text
 Browser
   ├─ Carta pública ──────────────► Next.js Server Components ─► Prisma ─► PostgreSQL
+  ├─ Carrito localStorage ───────► POST /api/orders/prepare ───► Prisma ─► WhatsApp precargado
   └─ Panel /admin
        ├─ Supabase Auth cookies ─► proxy.ts (sesión rápida)
        ├─ Páginas/handlers ──────► Auth + Prisma AdminUser OWNER/activo
@@ -97,6 +101,7 @@ Browser
 | Ruta | Propósito |
 | --- | --- |
 | `/` | Página pública con navegación condicional para Carta, Promociones, Sucursales, Galería y Merchandising. |
+| `POST /api/orders/prepare` | Valida carrito/configuración/sucursal, recalcula precios y devuelve el enlace de WhatsApp; aplica rate limit persistente. |
 | `/admin/login` | Acceso administrativo; no debe redirigirse a sí misma. |
 
 ### Panel protegido
@@ -164,6 +169,18 @@ Para una futura sección administrable se debe ampliar `selectVisiblePublicConte
 
 La suite `tests/public-navigation.test.ts` cubre los ocho contratos: ausencia/presencia de cada sección, promociones futuras/vencidas/inactivas y correspondencia completa entre cada `href` generado y los ids de sección derivados de la misma fuente.
 
+## Pedidos web y WhatsApp
+
+Revuelto agiliza el pedido del cliente, pero no reemplaza el sistema operativo del local. No existen estados de cocina, comandas, stock, despacho, entrega ni `/admin/orders`. El flujo implementado es: agregar Bowl SMALL/LARGE o merchandising, revisar cantidades, elegir Branch activa con WhatsApp válido, elegir efectivo o transferencia, validar en servidor y abrir el chat correcto con el resumen precargado.
+
+El carrito persiste como `{ version: 1, items }` en `revuelto-cart-v1`. Solo guarda tipo, UUID de producto, tamaño de bowl y cantidad. Un valor inválido, una versión desconocida o cantidades fuera de límites se descartan sin romper la home. Los límites son 1–20 unidades por línea, 50 líneas y 50 unidades totales, aplicados tanto en cliente como con Zod en servidor.
+
+`POST /api/orders/prepare` no acepta nombres, precios, subtotal, total ni número de WhatsApp. Consulta Prisma, exige productos activos/disponibles, tamaño existente, precio positivo, Branch activa y método habilitado. El dinero se convierte a centavos desde Decimal/string, evitando usar aritmética flotante para el total confiable. El endpoint admite 20 preparaciones por IP cada 10 minutos mediante `PublicOrderRateLimit` y HMAC con `SECURITY_HMAC_SECRET`.
+
+El resultado muestra al cliente el precio vigente y conserva el carrito. Abrir WhatsApp no envía automáticamente: solo abre `wa.me` con el mensaje codificado. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada.
+
+`SiteContent` agrega `orderingEnabled`, `cashEnabled`, `transferEnabled` y `mercadoPagoEnabled`, editables por OWNER desde Contenido. Si pedidos está apagado, botones y carrito no se renderizan. Mercado Pago permanece siempre no disponible públicamente aunque su flag se marque, porque todavía no existe integración real.
+
 ## Base de datos y migraciones
 
 ### Modelos
@@ -182,6 +199,7 @@ La suite `tests/public-navigation.test.ts` cubre los ocho contratos: ausencia/pr
 | `LoginAttempt` | Límite durable de login por hashes de IP y email. |
 | `AdminSessionActivity` | HMAC de sesión administrativa, actividad y vencimientos. |
 | `TemporaryImage` | Estado y rutas server-generated de staging/procesamiento. |
+| `PublicOrderRateLimit` | Ventana y contador por HMAC de IP para proteger el endpoint público de preparación. |
 
 Reglas de bowls: cada bowl tendrá exactamente SMALL (25 oz) y LARGE (35 oz)
 en cada creación o edición mediante Zod y una transacción Prisma.
@@ -213,12 +231,12 @@ Cada alta o edición de galería se confirma solo con el botón Guardar de su pr
 | `20260801000300_add_admin_session_absolute_expiry` | Aplicada | Agrega el vencimiento absoluto de una hora sin reescribir datos existentes. |
 | `20260804000100_add_promotion_weekly_schedule` | Aplicada | Agrega días y franja horaria semanal a promociones. |
 | `20260804000200_add_site_content_and_gallery` | Aplicada | Amplía `SiteContent`, crea el singleton y `GalleryItem`, agrega el destino de imagen y habilita RLS. |
-| `20260819000100_add_merchandise` | Pendiente | Agrega `MERCHANDISE` al destino temporal, crea `MerchandiseItem`, su índice, check de precio positivo y RLS sin políticas. |
+| `20260819000100_add_merchandise` | Aplicada | Agrega `MERCHANDISE` al destino temporal, crea `MerchandiseItem`, su índice, check de precio positivo y RLS sin políticas. |
+| `20260822000100_add_public_ordering` | Pendiente | Agrega cuatro flags a `SiteContent` y crea `PublicOrderRateLimit` con RLS sin políticas. |
 
-Antes de crear merchandising, `npx prisma migrate status` confirmó las seis
-migraciones previas aplicadas. Después de crear la migración aditiva, Prisma
-encontró siete migraciones y señaló únicamente `20260819000100_add_merchandise`
-como no aplicada.
+El 2026-08-22 `npx prisma migrate status` encontró ocho migraciones: las siete
+anteriores, incluida merchandising, están aplicadas y únicamente
+`20260822000100_add_public_ordering` está pendiente.
 Nunca modificar una migración aplicada. La migración 003 calcula
 `absoluteExpiresAt = createdAt + 1 hour` para las sesiones existentes antes de
 marcar la columna como obligatoria.
@@ -380,9 +398,9 @@ npx prisma validate
 ```
 
 `postinstall` ejecuta `prisma generate`. El build y TypeScript deben pasar antes
-de desplegar. Las 95 pruebas actuales validan los CRUD de bowls, sucursales, promociones, contenido y merchandising,
+de desplegar. Las pruebas actuales validan los CRUD de bowls, sucursales, promociones, contenido y merchandising,
 la galería, URLs de Instagram, imágenes, navegación pública condicional, HMAC/normalización,
-bloqueo, límite absoluto de sesión e imágenes.
+bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
 
 ### Despliegue en Vercel
 
@@ -395,8 +413,9 @@ bloqueo, límite absoluto de sesión e imágenes.
 
 ## Próxima etapa
 
-- Revisar y aplicar, solo con autorización explícita, `20260819000100_add_merchandise`.
-- Probar manualmente el dashboard, merchandising y los ajustes visuales acotados de la home.
+- Revisar y aplicar, solo con autorización explícita, `20260822000100_add_public_ordering`.
+- Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy.
+- Integrar Mercado Pago en una etapa separada: revisar documentación oficial vigente, agregar variables privadas, crear una entidad técnica mínima `CheckoutOrder`, Checkout Pro, back URLs, webhook firmado e idempotente y verificación server-side de monto/moneda/estado. Nunca confiar en `approved` de la URL de retorno.
 - Añadir pruebas de integración contra un entorno de prueba aislado.
 - Continuar monitoreando las ejecuciones del cron de limpieza en Vercel.
 

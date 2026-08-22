@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { usePublicOrderCart } from "@/components/public/order/cart-provider";
 
 type PublicNavigationItem = { id: string; href: string; label: string };
 
 export function PublicHeader({ items }: { items: PublicNavigationItem[] }) {
+  const cart = usePublicOrderCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -31,7 +33,7 @@ export function PublicHeader({ items }: { items: PublicNavigationItem[] }) {
         <a className="public-header-brand" href="#inicio" aria-label="Ir al inicio de Revuelto">
           <Image src="/brand/logos/logo-horizontal.svg" alt="Revuelto" width={560} height={210} priority />
         </a>
-        {items.length > 0 && (
+        {(items.length > 0 || cart.enabled) && (
           <>
             <button className="public-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="public-navigation" onClick={() => setMenuOpen((open) => !open)}>
               <span>{menuOpen ? "Cerrar" : "Menú"}</span>
@@ -39,6 +41,7 @@ export function PublicHeader({ items }: { items: PublicNavigationItem[] }) {
             </button>
             <nav id="public-navigation" className={`public-navigation${menuOpen ? " is-open" : ""}`} aria-label="Secciones disponibles">
               {items.map((item) => <a href={item.href} key={item.id} onClick={() => setMenuOpen(false)}>{item.label}</a>)}
+              {cart.enabled && <button className="public-cart-trigger" type="button" onClick={(event) => { setMenuOpen(false); cart.open(event.currentTarget); }}>Pedido ({cart.totalUnits})</button>}
             </nav>
           </>
         )}

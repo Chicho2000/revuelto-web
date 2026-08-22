@@ -1,8 +1,8 @@
 # Contexto técnico de Revuelto
 
-Actualizado: 2026-08-19. Este documento contiene estado comprobado y decisiones; `AGENTS.md` conserva las reglas obligatorias.
+Actualizado: 2026-08-22. Este documento contiene estado comprobado y decisiones; `AGENTS.md` conserva las reglas obligatorias.
 
-Commit actual verificado: `40b93b1` (`feat: refuerza seguridad, Storage y observabilidad`). La dedicación informada para el trabajo incorporado entre `dd71a77` y este commit fue de **aproximadamente 5 horas y 30 minutos**.
+Commit actual verificado: `6b5b0ab` (`feat: integra merchandising y rediseño público`). El sistema de pedidos descrito abajo está implementado como cambio local todavía sin commit ni push.
 
 Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md).
 
@@ -13,14 +13,15 @@ Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.m
 - Se agregó el endpoint de limpieza protegido por `CRON_SECRET`, su programación diaria en Vercel y las instrucciones de políticas restrictivas para Storage. La prueba local autenticada del 2026-08-12 respondió 200 y limpió 9 temporales vencidos, sin errores ni recursos finales afectados.
 - Se incorporó Sentry para servidor, edge y navegador con tracing desactivado y sanitización previa al envío; además hay límites de errores públicos para no revelar Prisma, SQL ni stack.
 - Se actualizaron dependencias, variables de ejemplo, documentación y pruebas automatizadas para reflejar estos flujos.
+- Se implementó un carrito público versionado para bowls y merchandising, checkout por sucursal, efectivo/transferencia y preparación segura de un mensaje de WhatsApp con precios recalculados en servidor.
 
 ## Estado actual
 
 - Stack activo: Next.js 16 App Router, React 19, TypeScript estricto, Tailwind, Prisma 7/PostgreSQL en Supabase, Supabase Auth/Storage, Zod, Sharp, ESLint y Vercel.
-- Funciona la página pública `/`, cuyo menú y secciones de carta, promociones, sucursales, galería y merchandising aparecen solo cuando tienen contenido público válido. También funcionan el login `/admin/login` y el panel protegido `/admin`, ahora organizado como dashboard de accesos directos. `/admin/bowls`, `/admin/branches`, `/admin/promotions`, `/admin/content` y `/admin/merchandise` tienen administración OWNER; merchandising es una vidriera simple sin carrito, stock, variantes ni pagos.
+- Funciona la página pública `/`, cuyo menú y secciones de carta, promociones, sucursales, galería y merchandising aparecen solo cuando tienen contenido público válido. Cuando `orderingEnabled` está activo, bowls y merchandising se agregan al carrito local, se elige una sucursal con WhatsApp válido y se prepara el pedido para efectivo o transferencia. También funcionan el login `/admin/login` y el panel protegido `/admin`; `/admin/content` permite configurar pedidos y medios de pago.
 - Integraciones activas: Prisma en servidor, Supabase Auth, protección de rutas, rate limiting persistente, Turnstile obligatorio e infraestructura de imágenes de staging. No hay datos mock como fallback.
 - Rutas de infraestructura: login/logout/actividad, intención-completado-descarte de imágenes y handlers protegidos bajo `/admin/bowls/manage`, `/admin/branches/manage`, `/admin/promotions/manage` y `/admin/merchandise/manage`. Promociones y merchandising admiten crear, editar y cambiar estado; no admiten borrado.
-- Las seis migraciones previas están aplicadas. `20260819000100_add_merchandise` es una migración aditiva nueva y pendiente que agrega el modelo de catálogo y `MERCHANDISE` a `TemporaryImageTarget`. `npx prisma migrate status` encontró siete migraciones y señaló únicamente esta como no aplicada. No se ejecutó `migrate deploy`, `migrate dev`, `db push` ni reset.
+- Las siete migraciones hasta `20260819000100_add_merchandise` están aplicadas. `npx prisma migrate status` del 2026-08-22 encontró ocho migraciones y señaló únicamente `20260822000100_add_public_ordering` como no aplicada. Esta migración aditiva amplía `SiteContent` con cuatro flags y crea `PublicOrderRateLimit`. No se ejecutó `migrate deploy`, `migrate dev`, `db push` ni reset.
 - Los buckets fueron corregidos y revisados manualmente: `revuelto-temp` es privado y `bucket-media` es público para lectura; ambos limitan archivos a 5 MB y aceptan JPEG, PNG y WebP. La aplicación conserva el formato original validado y no convierte automáticamente a WebP. La aplicación no crea ni reconfigura buckets.
 - Sentry está configurado en `.env.local`, sanitizado y funcionando. La ruta temporal `/api/dev/test-sentry` usada para comprobar la integración fue eliminada.
 - `CRON_SECRET` está configurado. La auditoría del cron quedó completada: el endpoint devuelve 401 sin secreto o con uno incorrecto, `vercel.json` fue validado y al auditar había 0 registros `TemporaryImage` candidatos a limpieza.
@@ -44,6 +45,8 @@ La sesión administrativa usa una cookie aleatoria propia, HTTP-only, SameSite=L
 `LoginAttempt` conserva HMAC de IP y email normalizado (trim/lowercase). Turnstile se exige desde el primer envío y se resetea tras cada respuesta fallida, porque sus tokens son de un solo uso. Cinco fallos de credenciales o autorización en 15 minutos bloquean 15 minutos. Éxito elimina el contador; fallos de Turnstile, infraestructura, timeout o base no lo incrementan. Turnstile se valida siempre por Siteverify, action `admin-login` y hostname configurado; token vencido/reutilizado no sirve.
 
 La service role se lee exclusivamente en `lib/supabase/storage-admin.ts`, que es `server-only`, para URLs firmadas, copiar y borrar Storage. Nunca se usa para login, cookies, Auth, `AdminUser`, Prisma ni autorización y nunca llega al navegador. Claves públicas: URL/Publishable Key de Supabase y la Site Key entregada por Server Component. Claves privadas: URLs de base, service role, HMAC y Secret Key de Turnstile.
+
+El carrito vive en componentes cliente pequeños y persiste únicamente identificadores, tamaño y cantidades en `localStorage` bajo `revuelto-cart-v1`. `POST /api/orders/prepare` acepta un esquema Zod estricto, aplica un límite persistente de 20 preparaciones cada 10 minutos por HMAC de IP y vuelve a consultar Bowl, BowlSize, MerchandiseItem, Branch y SiteContent con Prisma. Nombres, precios, subtotales, total y WhatsApp nunca se aceptan como fuente confiable del navegador. El enlace abre el chat de la sucursal con texto precargado; el cliente todavía debe revisarlo y enviarlo, y puede modificarlo.
 
 ## Flujo de imágenes
 
@@ -83,6 +86,7 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 | 2026-08-07 | Carrusel de galería | Con cuatro o más elementos públicos, la galería rota cada cinco segundos y conserva controles accesibles; hasta tres se usa grilla. Cada alta o edición se persiste únicamente con el botón Guardar de su propio formulario. | `components/admin/gallery/gallery-item-form.tsx`, `components/public/gallery-display.tsx`, `lib/gallery/carousel.ts` |
 | 2026-08-08 | Validar imágenes sin transformarlas y limpiar temporales diariamente | Los archivos no conformes se rechazan; los aceptados conservan bytes, formato, resolución y metadata. El cron protegido elimina solo temporales vencidos asociables y nunca recursos finales. | `lib/images/*`, `app/api/internal/cleanup-temporary-images/route.ts`, `vercel.json` |
 | 2026-08-19 | Merchandising como catálogo simple | Se reutilizan Zod, React Hook Form, autorización OWNER y el workflow de imágenes compensado; no se agrega slug porque no existen páginas individuales ni URLs por producto. La web lo oculta por completo si no hay productos activos. | `lib/merchandise/*`, `app/admin/**/merchandise/*`, `app/page.tsx` |
+| 2026-08-22 | Pedidos web como preparación para WhatsApp | Revuelto no administra cocina ni estados de pedidos. El carrito se conserva localmente; el servidor recalcula y valida antes de generar el enlace. Efectivo y transferencia están implementados. Mercado Pago es configurable pero permanece técnicamente deshabilitado hasta una etapa con credenciales, Checkout Pro, webhook e idempotencia. | `lib/orders/*`, `components/public/order/*`, `app/api/orders/prepare/route.ts` |
 | 2026-08-01 | No gestionar Auth users | Protege las cuentas creadas manualmente y separa identidad/autorización. | `lib/auth.ts` |
 
 ## Base de datos
@@ -91,26 +95,27 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 - `Bowl`, `BowlSize`: receta fija y sus tamaños SMALL/LARGE. Al borrar un bowl, sus tamaños se eliminan por cascada.
 - `Branch`, `BusinessHour`: sucursal y un horario por día. El índice único `(branchId, dayOfWeek)` evita duplicados; las operaciones escriben los siete días y guardan días cerrados con `isClosed = true` y horas nulas. Al borrar una sucursal, sus horarios se eliminan por cascada.
 - `Promotion`: promoción y programación semanal recurrente opcional mediante días y una franja horaria de Argentina. Conserva columnas de fechas históricas, que no usa el producto actualmente.
-- `SiteContent`: conserva filas editoriales legacy y usa `key = site-config` como singleton estructurado de textos, contacto, footer y SEO.
+- `SiteContent`: conserva filas editoriales legacy y usa `key = site-config` como singleton estructurado de textos, contacto, footer, SEO y cuatro flags de pedidos.
 - `GalleryItem`: imagen o miniatura de Instagram, enlace externo validado, orden y estado.
 - `MerchandiseItem`: nombre, descripción opcional, precio positivo, imagen, estado, orden y timestamps; no contiene stock, variantes ni datos de compra.
 - `LoginAttempt`: rate limit por hashes, sin datos personales en claro.
 - `AdminSessionActivity`: HMAC de cookie administrativa, vencimiento inactivo y máximo absoluto de una hora.
 - `TemporaryImage`: staging, temporal, estado, propietario y metadatos validados.
+- `PublicOrderRateLimit`: contador temporal por HMAC de IP para limitar la preparación pública de pedidos; no almacena carritos ni pedidos comerciales.
 
 ## Operaciones manuales y pruebas
 
 1. Crear las variables anteriores sin versionar valores; generar `SECURITY_HMAC_SECRET` aleatorio de 32+ caracteres.
 2. Mantener `revuelto-temp` privado y `bucket-media` público. Revisar y ejecutar manualmente [`STORAGE_SECURITY.sql`](./STORAGE_SECURITY.sql): niega acceso directo a ambos buckets para `anon`/`authenticated`; la lectura pública queda solo por la URL pública de finales.
 3. En Cloudflare Turnstile crear el widget, permitir hostnames local/producción, usar action `admin-login` y configurar las tres variables de Turnstile. La Secret Key no sale del servidor.
-4. Antes de cualquier cambio futuro de esquema, ejecutar `npx prisma migrate status` y tomar su resultado como fuente de verdad. Al 2026-08-19 las seis migraciones previas están aplicadas y `20260819000100_add_merchandise` está pendiente. No ejecutar `migrate deploy`, `migrate dev`, `db push` ni reset sin autorización explícita.
+4. Antes de cualquier cambio futuro de esquema, ejecutar `npx prisma migrate status` y tomar su resultado como fuente de verdad. Al 2026-08-22 las siete migraciones previas están aplicadas y `20260822000100_add_public_ordering` está pendiente. No ejecutar `migrate deploy`, `migrate dev`, `db push` ni reset sin autorización explícita.
 5. Mantener `CRON_SECRET` fuera de Git. El cron diario está declarado y validado en `vercel.json`; su endpoint rechaza solicitudes sin secreto o con secreto incorrecto.
 6. Probar manualmente el CRUD de bowls: alta con dos precios, slug duplicado, edición, estado, selección, arrastre, cambio y cancelación de imagen, y límites 5 MB/6000×6000/24 MP. Para borrar, cancelar primero, luego intentar con un nombre distinto y finalmente escribir exactamente el nombre; verificar que sus tamaños desaparezcan.
 7. Probar el CRUD de sucursales: alta/edición, siete días, abiertos/cerrados, validación de horas, teléfono opcional, activación/desactivación y visibilidad pública. Para borrar, repetir la confirmación exacta y verificar que sus horarios desaparezcan. Mantener además las pruebas manuales de login y sesión. Nunca cambiar ni probar automáticamente contraseñas reales.
 8. Probar la navegación pública en escritorio y celular alternando contenido activo/inactivo: cada enlace Carta, Promociones o Sucursales debe aparecer junto con su sección y desaparecer con ella.
 9. Probar promociones: desactivar la demo actual y comprobar que desaparezcan menú/sección; crear y editar una promoción; activar/desactivar; cargar, reemplazar, quitar y cancelar imagen. Una promoción activa debe mostrarse aun fuera de su franja, junto con el texto de días y horario; una inactiva no debe mostrar tarjeta, menú ni sección. Probar días completos sin horas y horario diario sin días. Los rangos que cruzan medianoche deben rechazarse. Tras un cambio de esquema, detener y volver a iniciar el servidor; `npm run dev` ejecuta `prisma generate` antes de iniciar Next. El seed quedó configurado para futuras ejecuciones con la demo inactiva, pero no se ejecutó ni se alteró la fila actual.
 
-Pruebas realizadas el 2026-08-19: `npx prisma generate`, `npx prisma validate`, `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build` y `git diff --check`. La suite suma 95 pruebas e incluye merchandising, autorización de handlers, navegación condicional, preservación de JPEG/PNG/WebP, cron, temporales, rate limit, sanitización Sentry y errores genéricos. No se usaron contraseñas ni se modificaron cuentas.
+Pruebas de pedidos realizadas el 2026-08-22 cubren carrito, límites, estado inválido de localStorage, Zod estricto, productos/sucursales/métodos no disponibles, recálculo de precios, efectivo, transferencia y WhatsApp. La validación final completa debe conservar además las pruebas existentes. No se usaron contraseñas ni se modificaron cuentas.
 
 Verificación HTTP local sobre el build de producción: sin cookies, `/admin/bowls` redirige 307 al login y los handlers de bowls (alta/edición/estado), promociones, sucursales, contenido, galería e imágenes responden 401. El cron sin Bearer también responde 401. No se invocó el cron con secreto ni se ejecutó ninguna mutación real.
 

@@ -22,6 +22,14 @@ test("WhatsApp desactivado no produce un enlace público", () => {
   assert.equal(buildWhatsAppUrl({ whatsappEnabled: false, whatsappNumber: "+54 9 11 1234 5678", whatsappDefaultMessage: "Hola" }), null);
 });
 
+test("la configuración de pedidos conserva métodos independientes y Mercado Pago apagado por defecto", () => {
+  assert.equal(DEFAULT_SITE_CONTENT.orderingEnabled, false);
+  assert.equal(DEFAULT_SITE_CONTENT.cashEnabled, true);
+  assert.equal(DEFAULT_SITE_CONTENT.transferEnabled, true);
+  assert.equal(DEFAULT_SITE_CONTENT.mercadoPagoEnabled, false);
+  assert.equal(siteContentFormSchema.safeParse({ ...DEFAULT_SITE_CONTENT, orderingEnabled: true }).success, true);
+});
+
 test("un error de persistencia conserva todos los valores del borrador", async () => {
   const draft = { ...DEFAULT_SITE_CONTENT, heroTitle: "Valor sin perder" };
   const result = await submitContentDraft(draft, async () => { throw new Error("base no disponible"); });

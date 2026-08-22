@@ -218,6 +218,10 @@ model SiteContent {
   whatsappButtonText           String?
   whatsappDefaultMessage       String?
   whatsappEnabled              Boolean  @default(false)
+  orderingEnabled              Boolean  @default(false)
+  cashEnabled                  Boolean  @default(true)
+  transferEnabled              Boolean  @default(true)
+  mercadoPagoEnabled           Boolean  @default(false)
   instagramUrl                 String?
   tiktokUrl                    String?
   footerText                   String?
@@ -239,6 +243,18 @@ model GalleryItem {
   updatedAt   DateTime        @updatedAt
 
   @@index([isActive, sortOrder, createdAt])
+}
+
+model PublicOrderRateLimit {
+  id              String   @id @default(uuid()) @db.Uuid
+  ipHash          String   @unique
+  requestCount    Int      @default(0)
+  windowStartedAt DateTime
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([expiresAt])
 }
 
 model MerchandiseItem {

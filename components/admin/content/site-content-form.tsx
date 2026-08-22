@@ -10,7 +10,10 @@ import {
 } from "@/lib/content/schema";
 import { submitContentDraft } from "@/lib/content/workflow";
 
-type TextFieldName = Exclude<keyof SiteContentInput, "whatsappEnabled">;
+type TextFieldName = Exclude<
+  keyof SiteContentInput,
+  "whatsappEnabled" | "orderingEnabled" | "cashEnabled" | "transferEnabled" | "mercadoPagoEnabled"
+>;
 
 const sections: Array<{
   title: string;
@@ -116,6 +119,31 @@ export function SiteContentForm({ initialValues }: { initialValues: SiteContentI
           )}
         </fieldset>
       ))}
+
+      <fieldset className="admin-content-section">
+        <legend>Pedidos web</legend>
+        <div className="admin-form-grid">
+          <label className="admin-checkbox admin-content-toggle">
+            <input type="checkbox" {...register("orderingEnabled")} />
+            Habilitar pedidos desde la web
+          </label>
+          <label className="admin-checkbox admin-content-toggle">
+            <input type="checkbox" {...register("cashEnabled")} />
+            Permitir efectivo
+          </label>
+          <label className="admin-checkbox admin-content-toggle">
+            <input type="checkbox" {...register("transferEnabled")} />
+            Permitir transferencia
+          </label>
+          <label className="admin-checkbox admin-content-toggle">
+            <input type="checkbox" {...register("mercadoPagoEnabled")} />
+            Solicitar Mercado Pago cuando la integración esté disponible
+          </label>
+        </div>
+        <p className="admin-field-help">
+          Mercado Pago todavía no está conectado. Aunque se marque, no aparecerá públicamente hasta completar credenciales, Checkout Pro y webhook.
+        </p>
+      </fieldset>
 
       {formMessage && <p className="form-message" role="status" aria-live="polite">{formMessage}</p>}
       <div className="admin-form-actions">

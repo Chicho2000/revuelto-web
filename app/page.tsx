@@ -7,6 +7,14 @@ import { formatPromotionPublicAvailability } from "@/lib/promotions/schema";
 import { GalleryDisplay } from "@/components/public/gallery-display";
 import { PublicHeader } from "@/components/public/public-header";
 import { RevealController } from "@/components/public/reveal-controller";
+import { AddToCartButton } from "@/components/public/order/add-to-cart-button";
+import {
+  PublicOrderCartProvider,
+  type PublicOrderBranch,
+  type PublicOrderConfiguration,
+  type PublicOrderProduct,
+} from "@/components/public/order/cart-provider";
+import { normalizeWhatsAppNumber } from "@/lib/orders/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +58,45 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
   const whatsappUrl = buildWhatsAppUrl(content);
   const externalHeroButton = content.heroButtonUrl.startsWith("https://");
   const menuItems = data.status === "ready" ? data.navigation.menuItems : [];
+  const orderConfiguration: PublicOrderConfiguration = data.status === "ready"
+    ? {
+        orderingEnabled: data.content.orderingEnabled,
+        cashEnabled: data.content.cashEnabled,
+        transferEnabled: data.content.transferEnabled,
+        mercadoPagoEnabled: data.content.mercadoPagoEnabled,
+      }
+    : { orderingEnabled: false, cashEnabled: false, transferEnabled: false, mercadoPagoEnabled: false };
+  const orderProducts: PublicOrderProduct[] = data.status === "ready"
+    ? [
+        ...data.visibleBowls.flatMap((bowl) => bowl.sizes.map((size) => ({
+          key: `BOWL:${bowl.id}:${size.size}`,
+          type: "BOWL" as const,
+          productId: bowl.id,
+          size: size.size,
+          name: bowl.name,
+          variant: `${size.size === "SMALL" ? "Chico" : "Grande"} (${size.ounces} oz)`,
+          unitPriceCents: Math.round(Number(size.price) * 100),
+          imageUrl: bowl.imageUrl,
+        }))),
+        ...data.visibleMerchandise.map((item) => ({
+          key: `MERCHANDISE:${item.id}`,
+          type: "MERCHANDISE" as const,
+          productId: item.id,
+          name: item.name,
+          variant: null,
+          unitPriceCents: Math.round(Number(item.price) * 100),
+          imageUrl: item.imageUrl,
+        })),
+      ]
+    : [];
+  const orderBranches: PublicOrderBranch[] = data.status === "ready"
+    ? data.visibleBranches
+        .filter((branch) => Boolean(normalizeWhatsAppNumber(branch.whatsappNumber)))
+        .map((branch) => ({ id: branch.id, name: branch.name, address: branch.address, city: branch.city }))
+    : [];
 
   return (
+    <PublicOrderCartProvider configuration={orderConfiguration} products={orderProducts} branches={orderBranches}>
     <div className="public-site">
       <RevealController />
       <PublicHeader items={menuItems} />
@@ -105,6 +150,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
                             <span><strong>{size.size === "SMALL" ? "Small" : "Large"}</strong> · {size.ounces} oz · {size.eggQuantity} huevos</span>
                             <strong>{currencyFormatter.format(Number(size.price))}</strong>
                             {size.quantityNotes && <small>{size.quantityNotes}</small>}
+                            <AddToCartButton item={{ type: "BOWL", productId: bowl.id, size: size.size }} name={`${bowl.name}, ${size.size === "SMALL" ? "chico" : "grande"}`} />
                           </div>
                         ))}
                       </div>
@@ -150,16 +196,6 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
             </section>
           )}
 
-          {data.navigation.hasGallery && (
-            <section id={PUBLIC_SECTION_IDS.gallery} className="public-section public-gallery-section">
-              <div className="public-section-heading" data-reveal>
-                <h2>{content.gallerySectionTitle || "Galería"}</h2>
-                {content.gallerySectionDescription && <p>{content.gallerySectionDescription}</p>}
-              </div>
-              <div data-reveal><GalleryDisplay items={data.visibleGallery} /></div>
-            </section>
-          )}
-
           {data.navigation.hasMerchandise && (
             <section id={PUBLIC_SECTION_IDS.merchandise} className="public-section public-merchandise-section">
               <div className="public-section-heading" data-reveal>
@@ -179,10 +215,21 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
                       <h3>{item.name}</h3>
                       {item.description && <p>{item.description}</p>}
                       <strong>{currencyFormatter.format(Number(item.price))}</strong>
+                      <AddToCartButton item={{ type: "MERCHANDISE", productId: item.id }} name={item.name} />
                     </div>
                   </article>
                 ))}
               </div>
+            </section>
+          )}
+
+          {data.navigation.hasGallery && (
+            <section id={PUBLIC_SECTION_IDS.gallery} className="public-section public-gallery-section">
+              <div className="public-section-heading" data-reveal>
+                <h2>{content.gallerySectionTitle || "Galería"}</h2>
+                {content.gallerySectionDescription && <p>{content.gallerySectionDescription}</p>}
+              </div>
+              <div data-reveal><GalleryDisplay items={data.visibleGallery} /></div>
             </section>
           )}
 
@@ -200,6 +247,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
       {whatsappUrl && <a className="public-whatsapp" href={whatsappUrl} target="_blank" rel="noopener noreferrer"><span className="public-whatsapp-dot" aria-hidden="true">↗</span><span>{content.whatsappButtonText || "WhatsApp"}</span></a>}
       <footer className="public-footer"><div className="public-footer-top"><a href="#inicio" aria-label="Volver al inicio"><Image src="/brand/logos/logo-horizontal.svg" alt="Revuelto" width={560} height={210} /></a>{content.footerText && <p>{content.footerText}</p>}</div><div className="public-footer-bottom"><nav aria-label="Navegación del pie"><a href="#inicio">Inicio</a>{menuItems.map((item) => <a href={item.href} key={item.id}>{item.label}</a>)}</nav><div className="public-social-links">{content.instagramUrl && <a href={content.instagramUrl} target="_blank" rel="noopener noreferrer">Instagram ↗</a>}{content.tiktokUrl && <a href={content.tiktokUrl} target="_blank" rel="noopener noreferrer">TikTok ↗</a>}</div></div><Image className="public-footer-seal" src="/brand/logos/seal-light.svg" alt="" width={260} height={260} aria-hidden="true" /></footer>
     </div>
+    </PublicOrderCartProvider>
   );
 }
 
