@@ -109,6 +109,7 @@ Handlers administrativos deben usar `requireOwner` de `lib/auth.ts`.
 ## Estado actual
 
 Incluye base de datos, Auth, seguridad del panel, carta pública, identidad
-visual, infraestructura de imágenes, CRUD completo de bowls con SMALL/LARGE y
-CRUD de sucursales con siete horarios. Siguen pendientes los CRUD de
-promociones y contenido.
+visual, infraestructura de imágenes, CRUD de bowls con SMALL/LARGE,
+sucursales, promociones, contenido, galería y merchandising. También incluye
+carrito público con preparación segura de pedidos por WhatsApp para efectivo y
+transferencia; Mercado Pago sigue pendiente de integración real.

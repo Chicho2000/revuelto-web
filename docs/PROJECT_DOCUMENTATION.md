@@ -1,6 +1,6 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-08-22.
+Actualizada: 2026-08-27.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
@@ -13,12 +13,13 @@ usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
 - Responsable que reporta la dedicación: Ciro Pregot.
 - Trabajo acumulado informado antes de iniciar la ETAPA 2: **6 horas y 30 minutos**.
 - Trabajo incorporado entre `dd71a77` y `40b93b1`: **aproximadamente 5 horas y 30 minutos**.
-- Commit actual verificado: `6b5b0ab`; el sistema de pedidos permanece como cambio local sin commit ni push.
-- Dedicación acumulada informada hasta esta actualización: **aproximadamente 12 horas**.
+- Commit actual verificado: `de16cc4` (`feat: add public WhatsApp ordering`).
+- Trabajo incorporado entre `6b5b0ab` y `de16cc4`: **aproximadamente 10 horas**; incluye la recuperación del diseño de laptop, ajustes visuales, carrito/pedidos y verificaciones.
+- Dedicación acumulada informada hasta esta actualización: **aproximadamente 22 horas**.
 
 Este registro refleja el tiempo informado por Ciro para el alcance construido
-hasta la fecha; las 5 horas y 30 minutos corresponden a los cambios incorporados
-entre ambos commits. No es una estimación automática ni incluye trabajo futuro.
+hasta la fecha; las 5 horas y 30 minutos y las 10 horas corresponden a los
+tramos de commits indicados. No es una estimación automática ni incluye trabajo futuro.
 
 ## Objetivo y alcance actual
 
@@ -34,7 +35,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Login y autorización OWNER | Implementados. |
 | Rate limiting y Turnstile | Implementados. |
 | Sesión administrativa | Implementada: 30 min inactiva o 1 h absoluta. |
-| Modelo Prisma y RLS | Siete migraciones aplicadas; la migración aditiva de pedidos y rate limit público está pendiente. |
+| Modelo Prisma y RLS | Ocho migraciones aplicadas, incluida la de pedidos y rate limit público. |
 | Storage y procesamiento de imágenes | Infraestructura implementada; buckets revisados y corregidos a 5 MB con JPEG/PNG/WebP. |
 | CRUD de bowls | Implementado con dos tamaños, estado, imágenes seguras y borrado definitivo confirmado por nombre. |
 | CRUD de sucursales y horarios | Implementado con siete días, estado, teléfono opcional y borrado definitivo confirmado por nombre. |
@@ -177,7 +178,7 @@ El carrito persiste como `{ version: 1, items }` en `revuelto-cart-v1`. Solo gua
 
 `POST /api/orders/prepare` no acepta nombres, precios, subtotal, total ni número de WhatsApp. Consulta Prisma, exige productos activos/disponibles, tamaño existente, precio positivo, Branch activa y método habilitado. El dinero se convierte a centavos desde Decimal/string, evitando usar aritmética flotante para el total confiable. El endpoint admite 20 preparaciones por IP cada 10 minutos mediante `PublicOrderRateLimit` y HMAC con `SECURITY_HMAC_SECRET`.
 
-El resultado muestra al cliente el precio vigente y conserva el carrito. Abrir WhatsApp no envía automáticamente: solo abre `wa.me` con el mensaje codificado. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada.
+El resultado muestra al cliente el precio vigente y conserva el carrito. Abrir WhatsApp no envía automáticamente: solo abre `web.whatsapp.com/send` con el mensaje codificado. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada. La compatibilidad de este acceso debe comprobarse manualmente en móvil.
 
 `SiteContent` agrega `orderingEnabled`, `cashEnabled`, `transferEnabled` y `mercadoPagoEnabled`, editables por OWNER desde Contenido. Si pedidos está apagado, botones y carrito no se renderizan. Mercado Pago permanece siempre no disponible públicamente aunque su flag se marque, porque todavía no existe integración real.
 
@@ -232,11 +233,11 @@ Cada alta o edición de galería se confirma solo con el botón Guardar de su pr
 | `20260804000100_add_promotion_weekly_schedule` | Aplicada | Agrega días y franja horaria semanal a promociones. |
 | `20260804000200_add_site_content_and_gallery` | Aplicada | Amplía `SiteContent`, crea el singleton y `GalleryItem`, agrega el destino de imagen y habilita RLS. |
 | `20260819000100_add_merchandise` | Aplicada | Agrega `MERCHANDISE` al destino temporal, crea `MerchandiseItem`, su índice, check de precio positivo y RLS sin políticas. |
-| `20260822000100_add_public_ordering` | Pendiente | Agrega cuatro flags a `SiteContent` y crea `PublicOrderRateLimit` con RLS sin políticas. |
+| `20260822000100_add_public_ordering` | Aplicada | Agrega cuatro flags a `SiteContent` y crea `PublicOrderRateLimit` con RLS sin políticas. |
 
-El 2026-08-22 `npx prisma migrate status` encontró ocho migraciones: las siete
-anteriores, incluida merchandising, están aplicadas y únicamente
-`20260822000100_add_public_ordering` está pendiente.
+El 2026-08-27 `npx prisma migrate status` encontró ocho migraciones y confirmó
+`Database schema is up to date!`; incluida
+`20260822000100_add_public_ordering`.
 Nunca modificar una migración aplicada. La migración 003 calcula
 `absoluteExpiresAt = createdAt + 1 hour` para las sesiones existentes antes de
 marcar la columna como obligatoria.
@@ -413,8 +414,7 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
 
 ## Próxima etapa
 
-- Revisar y aplicar, solo con autorización explícita, `20260822000100_add_public_ordering`.
-- Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy.
+- Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy, incluyendo el enlace de WhatsApp Web en móvil.
 - Integrar Mercado Pago en una etapa separada: revisar documentación oficial vigente, agregar variables privadas, crear una entidad técnica mínima `CheckoutOrder`, Checkout Pro, back URLs, webhook firmado e idempotente y verificación server-side de monto/moneda/estado. Nunca confiar en `approved` de la URL de retorno.
 - Añadir pruebas de integración contra un entorno de prueba aislado.
 - Continuar monitoreando las ejecuciones del cron de limpieza en Vercel.
