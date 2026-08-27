@@ -69,15 +69,17 @@ export function buildOrderWhatsAppUrls(number: string, message: string) {
   const normalized = normalizeWhatsAppNumber(number);
   if (!normalized) return null;
 
-  const mobileUrl = new URL(`https://wa.me/${normalized}`);
-  mobileUrl.searchParams.set("text", message);
+  const mobileParams = new URLSearchParams({
+    phone: normalized,
+    text: message,
+  });
 
   const desktopUrl = new URL("https://web.whatsapp.com/send");
   desktopUrl.searchParams.set("phone", normalized);
   desktopUrl.searchParams.set("text", message);
 
   return {
-    mobileWhatsappUrl: mobileUrl.toString(),
+    mobileWhatsappUrl: `whatsapp://send?${mobileParams.toString()}`,
     desktopWhatsappUrl: desktopUrl.toString(),
   };
 }

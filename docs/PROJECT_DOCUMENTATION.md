@@ -178,7 +178,7 @@ El carrito persiste como `{ version: 1, items }` en `revuelto-cart-v1`. Solo gua
 
 `POST /api/orders/prepare` no acepta nombres, precios, subtotal, total ni número de WhatsApp. Consulta Prisma, exige productos activos/disponibles, tamaño existente, precio positivo, Branch activa y método habilitado. El dinero se convierte a centavos desde Decimal/string, evitando usar aritmética flotante para el total confiable. El endpoint admite 20 preparaciones por IP cada 10 minutos mediante `PublicOrderRateLimit` y HMAC con `SECURITY_HMAC_SECRET`.
 
-El resultado muestra al cliente el precio vigente y conserva el carrito. El servidor construye desde el mismo teléfono y mensaje validados `wa.me/{phone}` para mobile y `web.whatsapp.com/send` para desktop; el cliente solo elige el enlace mediante `navigator.userAgentData.mobile` o un fallback de user-agent para Android/iPhone/iPad. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada.
+El resultado muestra al cliente el precio vigente y conserva el carrito. El servidor construye desde el mismo teléfono y mensaje validados `whatsapp://send` para mobile y `web.whatsapp.com/send` para desktop; el cliente solo elige el enlace mediante `navigator.userAgentData.mobile` o un fallback de user-agent para Android/iPhone/iPad. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada.
 
 `SiteContent` agrega `orderingEnabled`, `cashEnabled`, `transferEnabled` y `mercadoPagoEnabled`, editables por OWNER desde Contenido. Si pedidos está apagado, botones y carrito no se renderizan. Mercado Pago permanece siempre no disponible públicamente aunque su flag se marque, porque todavía no existe integración real.
 
@@ -414,7 +414,7 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
 
 ## Próxima etapa
 
-- Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy, incluyendo `wa.me` en mobile y WhatsApp Web en desktop.
+- Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy, incluyendo la apertura directa `whatsapp://send` en mobile y WhatsApp Web en desktop.
 - Integrar Mercado Pago en una etapa separada: revisar documentación oficial vigente, agregar variables privadas, crear una entidad técnica mínima `CheckoutOrder`, Checkout Pro, back URLs, webhook firmado e idempotente y verificación server-side de monto/moneda/estado. Nunca confiar en `approved` de la URL de retorno.
 - Añadir pruebas de integración contra un entorno de prueba aislado.
 - Continuar monitoreando las ejecuciones del cron de limpieza en Vercel.

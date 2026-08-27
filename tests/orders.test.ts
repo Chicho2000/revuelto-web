@@ -210,11 +210,11 @@ test("WhatsApp construye URLs mobile y desktop desde el mismo número y mensaje"
   const message = "Hola\n2 × Revuelto Clásico — $13.000";
   const urls = buildOrderWhatsAppUrls("+54 9 341 555 1234", message);
   assert.ok(urls);
-  const mobile = new URL(urls.mobileWhatsappUrl);
+  assert.ok(urls.mobileWhatsappUrl.startsWith("whatsapp://send?"));
+  const mobileParams = new URLSearchParams(urls.mobileWhatsappUrl.slice("whatsapp://send?".length));
   const desktop = new URL(urls.desktopWhatsappUrl);
-  assert.equal(mobile.hostname, "wa.me");
-  assert.equal(mobile.pathname, "/5493415551234");
-  assert.equal(mobile.searchParams.get("text"), message);
+  assert.equal(mobileParams.get("phone"), "5493415551234");
+  assert.equal(mobileParams.get("text"), message);
   assert.equal(desktop.hostname, "web.whatsapp.com");
   assert.equal(desktop.pathname, "/send");
   assert.equal(desktop.searchParams.get("phone"), "5493415551234");
@@ -231,7 +231,8 @@ test("WhatsApp conserva Unicode completo en el mensaje y tras codificar la URL",
 
   for (const symbol of ["👋", "🍳", "🛍️", "💰", "💵", "🙌", "×", "•"]) {
     assert.ok(message.includes(symbol), `El mensaje debe conservar ${symbol}`);
-    assert.equal(new URL(urls.mobileWhatsappUrl).searchParams.get("text")?.includes(symbol), true, `La URL mobile debe conservar ${symbol}`);
+    const mobileText = new URLSearchParams(urls.mobileWhatsappUrl.slice("whatsapp://send?".length)).get("text");
+    assert.equal(mobileText?.includes(symbol), true, `La URL mobile debe conservar ${symbol}`);
     assert.equal(new URL(urls.desktopWhatsappUrl).searchParams.get("text")?.includes(symbol), true, `La URL desktop debe conservar ${symbol}`);
   }
   const replacementCharacter = String.fromCodePoint(0xfffd);
@@ -247,11 +248,12 @@ test("la URL de WhatsApp conserva exactamente el mensaje Unicode aislado", () =>
   const testMessage = "👋 🍳 🛍️ 💰 💵 🙌 • × á é ñ";
   const urls = buildOrderWhatsAppUrls("+54 9 341 555 1234", testMessage);
   assert.ok(urls);
-  for (const url of [urls.mobileWhatsappUrl, urls.desktopWhatsappUrl]) {
-    const decoded = new URL(url).searchParams.get("text");
-    assert.equal(decoded, testMessage);
-    assert.equal(decoded?.includes(String.fromCodePoint(0xfffd)), false);
-  }
+  const mobileDecoded = new URLSearchParams(urls.mobileWhatsappUrl.slice("whatsapp://send?".length)).get("text");
+  const desktopDecoded = new URL(urls.desktopWhatsappUrl).searchParams.get("text");
+  assert.equal(mobileDecoded, testMessage);
+  assert.equal(desktopDecoded, testMessage);
+  assert.equal(mobileDecoded?.includes(String.fromCodePoint(0xfffd)), false);
+  assert.equal(desktopDecoded?.includes(String.fromCodePoint(0xfffd)), false);
 });
 
 test("detecta mobile con userAgentData y fallback de userAgent", () => {
