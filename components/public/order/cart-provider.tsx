@@ -22,6 +22,7 @@ import {
   setCartItemQuantity,
   shouldShowCartBottomBar,
 } from "@/lib/orders/cart";
+import { isMobileDevice } from "@/lib/orders/device";
 import {
   CART_STORAGE_KEY,
   getCartItemKey,
@@ -63,7 +64,8 @@ type PreparedResponse = {
     subtotalCents: number;
   }>;
   totalCents: number;
-  whatsappUrl: string;
+  mobileWhatsappUrl: string;
+  desktopWhatsappUrl: string;
   branchName: string;
   paymentMethod: OrderPaymentMethod;
 };
@@ -108,6 +110,7 @@ export function PublicOrderCartProvider({
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [prepared, setPrepared] = useState<PreparedResponse | null>(null);
+  const [whatsappHref, setWhatsappHref] = useState("");
   const [recentlyChangedKey, setRecentlyChangedKey] = useState<string | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -256,6 +259,7 @@ export function PublicOrderCartProvider({
         throw new Error(body?.error ?? "No pudimos preparar el pedido. Intentá nuevamente.");
       }
       setPrepared(body);
+      setWhatsappHref(isMobileDevice(window.navigator) ? body.mobileWhatsappUrl : body.desktopWhatsappUrl);
       setStep("prepared");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No pudimos preparar el pedido. Intentá nuevamente.");
@@ -267,6 +271,7 @@ export function PublicOrderCartProvider({
   function clearCart() {
     setItems([]);
     setPrepared(null);
+    setWhatsappHref("");
     setStep("cart");
     announce("Pedido vaciado.");
   }
@@ -342,7 +347,7 @@ export function PublicOrderCartProvider({
                 <ul>{prepared.lines.map((line) => <li key={line.key}><span>{line.quantity} × {line.name}{line.variant ? ` — ${line.variant}` : ""}</span><strong>{currencyFormatter.format(line.subtotalCents / 100)}</strong></li>)}</ul>
                 <div className="public-cart-total"><span>Total actual</span><strong>{currencyFormatter.format(prepared.totalCents / 100)}</strong></div>
                 <p>Sucursal: <strong>{prepared.branchName}</strong></p>
-                <a className="public-button public-button-dark" href={prepared.whatsappUrl} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+                <a className="public-button public-button-dark" href={whatsappHref} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
                 <p className="public-cart-note">WhatsApp abrirá el chat con el texto precargado. Podés revisarlo antes de enviarlo; el carrito se conserva.</p>
                 <button type="button" className="public-cart-back" onClick={() => setStep("cart")}>Volver al pedido</button>
                 <button type="button" className="public-cart-clear" onClick={clearCart}>Vaciar pedido</button>

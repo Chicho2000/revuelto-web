@@ -23,7 +23,8 @@ import {
   type PrepareOrderInput,
 } from "../lib/orders/schema";
 import { prepareOrderFromCatalog, PublicOrderError, type OrderCatalog } from "../lib/orders/service";
-import { buildOrderMessage, buildOrderWhatsAppUrl } from "../lib/orders/whatsapp";
+import { isMobileDevice } from "../lib/orders/device";
+import { buildOrderMessage, buildOrderWhatsAppUrls } from "../lib/orders/whatsapp";
 import { isPublicOrderRateLimited, ORDER_RATE_LIMIT_MAX_REQUESTS, ORDER_RATE_LIMIT_WINDOW_MS } from "../lib/orders/rate-limit";
 
 const bowlId = "11111111-1111-4111-8111-111111111111";
@@ -205,32 +206,38 @@ test("genera mensajes claros para efectivo y transferencia con mezcla de product
   assert.doesNotMatch(transfer, /Pago confirmado/);
 });
 
-test("WhatsApp usa el número normalizado de Branch y codifica el mensaje", () => {
+test("WhatsApp construye URLs mobile y desktop desde el mismo número y mensaje", () => {
   const message = "Hola\n2 × Revuelto Clásico — $13.000";
-  const url = buildOrderWhatsAppUrl("+54 9 341 555 1234", message);
-  assert.ok(url);
-  const parsed = new URL(url);
-  assert.equal(parsed.hostname, "web.whatsapp.com");
-  assert.equal(parsed.pathname, "/send");
-  assert.equal(parsed.searchParams.get("phone"), "5493415551234");
-  assert.equal(parsed.searchParams.get("text"), message);
-  assert.equal(new URL(buildOrderWhatsAppUrl("341 555 1234", message)!).searchParams.get("phone"), "5493415551234");
-  assert.equal(buildOrderWhatsAppUrl("5551234", message), null);
+  const urls = buildOrderWhatsAppUrls("+54 9 341 555 1234", message);
+  assert.ok(urls);
+  const mobile = new URL(urls.mobileWhatsappUrl);
+  const desktop = new URL(urls.desktopWhatsappUrl);
+  assert.equal(mobile.hostname, "wa.me");
+  assert.equal(mobile.pathname, "/5493415551234");
+  assert.equal(mobile.searchParams.get("text"), message);
+  assert.equal(desktop.hostname, "web.whatsapp.com");
+  assert.equal(desktop.pathname, "/send");
+  assert.equal(desktop.searchParams.get("phone"), "5493415551234");
+  assert.equal(desktop.searchParams.get("text"), message);
+  assert.equal(new URL(buildOrderWhatsAppUrls("341 555 1234", message)!.desktopWhatsappUrl).searchParams.get("phone"), "5493415551234");
+  assert.equal(buildOrderWhatsAppUrls("5551234", message), null);
 });
 
 test("WhatsApp conserva Unicode completo en el mensaje y tras codificar la URL", () => {
   const lines = prepareOrderFromCatalog(input([{ ...small, quantity: 1 }, { ...merch, quantity: 1 }]), catalog()).lines;
   const message = buildOrderMessage(lines, 1_350_000, "CASH");
-  const url = buildOrderWhatsAppUrl("+54 9 341 555 1234", message);
-  assert.ok(url);
+  const urls = buildOrderWhatsAppUrls("+54 9 341 555 1234", message);
+  assert.ok(urls);
 
   for (const symbol of ["👋", "🍳", "🛍️", "💰", "💵", "🙌", "×", "•"]) {
     assert.ok(message.includes(symbol), `El mensaje debe conservar ${symbol}`);
-    assert.equal(new URL(url).searchParams.get("text")?.includes(symbol), true, `La URL debe conservar ${symbol}`);
+    assert.equal(new URL(urls.mobileWhatsappUrl).searchParams.get("text")?.includes(symbol), true, `La URL mobile debe conservar ${symbol}`);
+    assert.equal(new URL(urls.desktopWhatsappUrl).searchParams.get("text")?.includes(symbol), true, `La URL desktop debe conservar ${symbol}`);
   }
   const replacementCharacter = String.fromCodePoint(0xfffd);
   assert.equal(message.includes(replacementCharacter), false);
-  assert.equal((new URL(url).searchParams.get("text") ?? "").includes(replacementCharacter), false);
+  assert.equal(urls.mobileWhatsappUrl.includes(replacementCharacter), false);
+  assert.equal(urls.desktopWhatsappUrl.includes(replacementCharacter), false);
 
   const routeSource = readFileSync(path.resolve("app/api/orders/prepare/route.ts"), "utf8");
   assert.match(routeSource, /application\/json; charset=utf-8/);
@@ -238,15 +245,24 @@ test("WhatsApp conserva Unicode completo en el mensaje y tras codificar la URL",
 
 test("la URL de WhatsApp conserva exactamente el mensaje Unicode aislado", () => {
   const testMessage = "👋 🍳 🛍️ 💰 💵 🙌 • × á é ñ";
-  const url = buildOrderWhatsAppUrl("+54 9 341 555 1234", testMessage);
-  assert.ok(url);
-  const parsed = new URL(url);
-  assert.equal(parsed.hostname, "web.whatsapp.com");
-  assert.equal(parsed.pathname, "/send");
-  assert.equal(parsed.searchParams.get("phone"), "5493415551234");
-  const decoded = parsed.searchParams.get("text");
-  assert.equal(decoded, testMessage);
-  assert.equal(decoded?.includes(String.fromCodePoint(0xfffd)), false);
+  const urls = buildOrderWhatsAppUrls("+54 9 341 555 1234", testMessage);
+  assert.ok(urls);
+  for (const url of [urls.mobileWhatsappUrl, urls.desktopWhatsappUrl]) {
+    const decoded = new URL(url).searchParams.get("text");
+    assert.equal(decoded, testMessage);
+    assert.equal(decoded?.includes(String.fromCodePoint(0xfffd)), false);
+  }
+});
+
+test("detecta mobile con userAgentData y fallback de userAgent", () => {
+  assert.equal(isMobileDevice({ userAgentData: { mobile: true }, userAgent: "Desktop Chrome" }), true);
+  assert.equal(isMobileDevice({ userAgentData: { mobile: false }, userAgent: "Android" }), false);
+  assert.equal(isMobileDevice({ userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/126" }), true);
+  assert.equal(isMobileDevice({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)" }), true);
+  assert.equal(isMobileDevice({ userAgent: "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X)" }), true);
+  assert.equal(isMobileDevice({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126" }), false);
+  assert.equal(isMobileDevice({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/126" }), false);
+  assert.equal(isMobileDevice({}), false);
 });
 
 test("el endpoint público usa un rate limit Prisma persistente y no uno en memoria", () => {

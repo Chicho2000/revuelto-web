@@ -4,7 +4,7 @@ import type { CartItem, PrepareOrderInput } from "@/lib/orders/schema";
 import { getCartItemKey } from "@/lib/orders/schema";
 import {
   buildOrderMessage,
-  buildOrderWhatsAppUrl,
+  buildOrderWhatsAppUrls,
   type PreparedOrderLine,
 } from "@/lib/orders/whatsapp";
 import { getPrisma } from "@/lib/prisma";
@@ -106,10 +106,10 @@ export function prepareOrderFromCatalog(input: PrepareOrderInput, catalog: Order
   const lines = input.items.map((item) => resolveLine(item, catalog));
   const totalCents = lines.reduce((total, line) => total + line.subtotalCents, 0);
   const message = buildOrderMessage(lines, totalCents, input.paymentMethod);
-  const whatsappUrl = buildOrderWhatsAppUrl(catalog.branch.whatsappNumber, message);
-  if (!whatsappUrl) throw new PublicOrderError("BRANCH_UNAVAILABLE", "Esta sucursal no está disponible para pedidos por WhatsApp.");
+  const whatsappUrls = buildOrderWhatsAppUrls(catalog.branch.whatsappNumber, message);
+  if (!whatsappUrls) throw new PublicOrderError("BRANCH_UNAVAILABLE", "Esta sucursal no está disponible para pedidos por WhatsApp.");
 
-  return { lines, totalCents, message, whatsappUrl, branchName: catalog.branch.name, paymentMethod: input.paymentMethod };
+  return { lines, totalCents, message, ...whatsappUrls, branchName: catalog.branch.name, paymentMethod: input.paymentMethod };
 }
 
 export async function preparePublicOrder(input: PrepareOrderInput) {
