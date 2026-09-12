@@ -331,6 +331,53 @@ test("webhook acepta únicamente payment.created/payment.updated y payment id v�
   assert.equal(mercadoPagoNotificationSchema.safeParse({ ...base, action: "payment.created", data: { id: "not-a-payment" } }).success, false);
 });
 
+test("instrumentación de reconciliación separa lookup del proveedor y repositorio", async () => {
+  const successfulStages: string[] = [];
+  const record = checkoutRecord();
+  await reconcileMercadoPagoPaymentWithDependencies("987", {
+    gateway: {
+      async createPreference() { throw new Error("unexpected preference"); },
+      async getPayment() { return payment({ status: "pending" }); },
+    },
+    findByPublicCode: async () => record,
+    findByPaymentId: async () => null,
+    updatePayment: async (checkout) => checkout,
+    reportMismatch: () => undefined,
+    reportUnknownStatus: () => undefined,
+    onStage: ({ stage }) => successfulStages.push(stage),
+  });
+  assert.deepEqual(successfulStages, [
+    "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_START",
+    "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_OK",
+    "MP_WEBHOOK_STAGE_ORDER_LOOKUP_START",
+    "MP_WEBHOOK_STAGE_ORDER_LOOKUP_OK",
+    "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_START",
+    "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_OK",
+    "MP_WEBHOOK_STAGE_ORDER_UPDATE_START",
+    "MP_WEBHOOK_STAGE_ORDER_UPDATE_OK",
+  ]);
+
+  const repositoryStages: string[] = [];
+  await assert.rejects(reconcileMercadoPagoPaymentWithDependencies("987", {
+    gateway: {
+      async createPreference() { throw new Error("unexpected preference"); },
+      async getPayment() { return payment({ status: "pending" }); },
+    },
+    findByPublicCode: async () => { throw new Error("controlled repository failure"); },
+    findByPaymentId: async () => null,
+    updatePayment: async (checkout) => checkout,
+    reportMismatch: () => undefined,
+    reportUnknownStatus: () => undefined,
+    onStage: ({ stage }) => repositoryStages.push(stage),
+  }));
+  assert.deepEqual(repositoryStages, [
+    "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_START",
+    "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_OK",
+    "MP_WEBHOOK_STAGE_ORDER_LOOKUP_START",
+    "MP_WEBHOOK_STAGE_ORDER_LOOKUP_FAILED",
+  ]);
+});
+
 test("reconciliación mock consulta el pago real, aprueba e ignora duplicados", async () => {
   let record = checkoutRecord();
   let lookups = 0;
@@ -480,6 +527,9 @@ test("rutas usan rate limit, idempotencia, no-store y no exponen Access Token", 
   assert.doesNotMatch(createRoute, /MERCADO_PAGO_ACCESS_TOKEN/);
   assert.match(webhookRoute, /WebhookSignatureValidator\.validate/);
   assert.match(webhookRoute, /reconcileMercadoPagoPayment/);
+  assert.match(webhookRoute, /MP_WEBHOOK_PAYMENT_NOT_FOUND/);
+  assert.match(webhookRoute, /MP_WEBHOOK_PROVIDER_ERROR/);
+  assert.match(webhookRoute, /MP_WEBHOOK_REPOSITORY_ERROR/);
   assert.match(statusRoute, /cache-control.*no-store/);
   assert.match(cart, /submittingRef\.current/);
   assert.match(cart, /window\.location\.assign\(body\.initPoint\)/);

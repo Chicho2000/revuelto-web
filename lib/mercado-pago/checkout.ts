@@ -24,7 +24,11 @@ import {
   updateCheckoutPayment,
   type NewCheckoutOrder,
 } from "@/lib/mercado-pago/repository";
-import { checkoutOrderSnapshotSchema, type MercadoPagoGateway } from "@/lib/mercado-pago/types";
+import {
+  checkoutOrderSnapshotSchema,
+  type MercadoPagoGateway,
+  type MercadoPagoPayment,
+} from "@/lib/mercado-pago/types";
 import { calculateOrderFromCatalog, getPublicOrderCatalog, PublicOrderError } from "@/lib/orders/service";
 import type { OrderCatalog } from "@/lib/orders/service";
 import type { PrepareOrderInput } from "@/lib/orders/schema";
@@ -154,21 +158,63 @@ type ReconcilePaymentDependencies = {
   }): Promise<CheckoutOrder>;
   reportMismatch(error: Error): void;
   reportUnknownStatus(status: string): void;
+  onStage?(event: MercadoPagoReconcileStageEvent): void;
+};
+
+export type MercadoPagoReconcileStageEvent = {
+  stage:
+    | "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_START"
+    | "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_FAILED"
+    | "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_OK"
+    | "MP_WEBHOOK_STAGE_ORDER_LOOKUP_START"
+    | "MP_WEBHOOK_STAGE_ORDER_LOOKUP_FAILED"
+    | "MP_WEBHOOK_STAGE_ORDER_LOOKUP_OK"
+    | "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_START"
+    | "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_FAILED"
+    | "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_OK"
+    | "MP_WEBHOOK_STAGE_ORDER_UPDATE_START"
+    | "MP_WEBHOOK_STAGE_ORDER_UPDATE_FAILED"
+    | "MP_WEBHOOK_STAGE_ORDER_UPDATE_OK";
+  error?: unknown;
 };
 
 export async function reconcileMercadoPagoPaymentWithDependencies(
   paymentId: string,
   dependencies: ReconcilePaymentDependencies,
 ) {
-  const payment = await dependencies.gateway.getPayment(paymentId);
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_START" });
+  let payment: MercadoPagoPayment;
+  try {
+    payment = await dependencies.gateway.getPayment(paymentId);
+  } catch (error) {
+    dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_FAILED", error });
+    throw error;
+  }
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_OK" });
   if (!PUBLIC_CHECKOUT_CODE_PATTERN.test(payment.externalReference)) return { outcome: "IGNORED" as const };
 
-  const checkout = await dependencies.findByPublicCode(payment.externalReference);
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_ORDER_LOOKUP_START" });
+  let checkout: CheckoutOrder | null;
+  try {
+    checkout = await dependencies.findByPublicCode(payment.externalReference);
+  } catch (error) {
+    dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_ORDER_LOOKUP_FAILED", error });
+    throw error;
+  }
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_ORDER_LOOKUP_OK" });
   if (!checkout) return { outcome: "IGNORED" as const };
   const validation = validatePaymentForCheckout(payment, checkout);
   if (!validation.externalReferenceMatches || !validation.testModeMatches) return { outcome: "IGNORED" as const };
 
-  const paymentOwner = await dependencies.findByPaymentId(payment.id);
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_START" });
+  let paymentOwner: CheckoutOrder | null;
+  try {
+    paymentOwner = await dependencies.findByPaymentId(payment.id);
+  } catch (error) {
+    dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_FAILED", error });
+    throw error;
+  }
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_OK" });
   if (paymentOwner && paymentOwner.id !== checkout.id) return { outcome: "IGNORED" as const };
   if (checkout.paymentStatus === "APPROVED" && checkout.mercadoPagoPaymentId !== payment.id) {
     return { outcome: "DUPLICATE_ATTEMPT" as const };
@@ -191,25 +237,37 @@ export async function reconcileMercadoPagoPaymentWithDependencies(
     return { outcome: "ALREADY_PROCESSED" as const, checkout };
   }
 
-  const updated = await dependencies.updatePayment(checkout, {
-    paymentStatus: nextStatus,
-    paymentId: payment.id,
-    mercadoPagoStatus: payment.status,
-    ...(nextStatus === "APPROVED" ? { paidAt: safePaidAt(payment.dateApproved) } : {}),
-  });
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_ORDER_UPDATE_START" });
+  let updated: CheckoutOrder;
+  try {
+    updated = await dependencies.updatePayment(checkout, {
+      paymentStatus: nextStatus,
+      paymentId: payment.id,
+      mercadoPagoStatus: payment.status,
+      ...(nextStatus === "APPROVED" ? { paidAt: safePaidAt(payment.dateApproved) } : {}),
+    });
+  } catch (error) {
+    dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_ORDER_UPDATE_FAILED", error });
+    throw error;
+  }
+  dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_ORDER_UPDATE_OK" });
   return { outcome: "UPDATED" as const, checkout: updated };
 }
 
-export async function reconcileMercadoPagoPayment(paymentId: string, gateway?: MercadoPagoGateway) {
+export async function reconcileMercadoPagoPayment(
+  paymentId: string,
+  options: { gateway?: MercadoPagoGateway; onStage?(event: MercadoPagoReconcileStageEvent): void } = {},
+) {
   const environment = getMercadoPagoEnvironment();
   if (!environment) throw new MercadoPagoCheckoutError("NOT_CONFIGURED", 503);
   return reconcileMercadoPagoPaymentWithDependencies(paymentId, {
-    gateway: gateway ?? createMercadoPagoGateway(environment.MERCADO_PAGO_ACCESS_TOKEN),
+    gateway: options.gateway ?? createMercadoPagoGateway(environment.MERCADO_PAGO_ACCESS_TOKEN),
     findByPublicCode: findCheckoutByPublicCode,
     findByPaymentId: findCheckoutByPaymentId,
     updatePayment: updateCheckoutPayment,
     reportMismatch: (error) => reportUnexpectedServerError("mercado-pago.payment-mismatch", error),
     reportUnknownStatus: () => reportUnexpectedServerError("mercado-pago.unknown-payment-status", new Error("UnknownMercadoPagoPaymentStatus")),
+    onStage: options.onStage,
   });
 }
 
