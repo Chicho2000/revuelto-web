@@ -58,7 +58,7 @@ function assertPaymentAvailable(input: PrepareOrderInput, catalog: OrderCatalog)
     ? catalog.cashEnabled
     : input.paymentMethod === "TRANSFER"
       ? catalog.transferEnabled
-      : false;
+      : catalog.mercadoPagoEnabled;
   if (!enabled) throw new PublicOrderError("PAYMENT_UNAVAILABLE", "La forma de pago seleccionada no está disponible.");
 }
 
@@ -73,8 +73,11 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
     return {
       key: getCartItemKey(item),
       type: "BOWL",
+      sourceId: item.productId,
       name: bowl.name,
       variant: `${item.size === "SMALL" ? "Chico" : "Grande"} (${size.ounces} oz)`,
+      size: item.size,
+      ounces: size.ounces,
       quantity: item.quantity,
       unitPriceCents,
       subtotalCents: unitPriceCents * item.quantity,
@@ -89,15 +92,18 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
   return {
     key: getCartItemKey(item),
     type: "MERCHANDISE",
+    sourceId: item.productId,
     name: merchandise.name,
     variant: null,
+    size: null,
+    ounces: null,
     quantity: item.quantity,
     unitPriceCents,
     subtotalCents: unitPriceCents * item.quantity,
   };
 }
 
-export function prepareOrderFromCatalog(input: PrepareOrderInput, catalog: OrderCatalog) {
+export function calculateOrderFromCatalog(input: PrepareOrderInput, catalog: OrderCatalog) {
   assertPaymentAvailable(input, catalog);
   if (!catalog.branch || !catalog.branch.isActive) {
     throw new PublicOrderError("BRANCH_UNAVAILABLE", "Esta sucursal no está disponible para pedidos por WhatsApp.");
@@ -105,14 +111,27 @@ export function prepareOrderFromCatalog(input: PrepareOrderInput, catalog: Order
 
   const lines = input.items.map((item) => resolveLine(item, catalog));
   const totalCents = lines.reduce((total, line) => total + line.subtotalCents, 0);
-  const message = buildOrderMessage(lines, totalCents, input.paymentMethod);
-  const whatsappUrls = buildOrderWhatsAppUrls(catalog.branch.whatsappNumber, message);
-  if (!whatsappUrls) throw new PublicOrderError("BRANCH_UNAVAILABLE", "Esta sucursal no está disponible para pedidos por WhatsApp.");
-
-  return { lines, totalCents, message, ...whatsappUrls, branchName: catalog.branch.name, paymentMethod: input.paymentMethod };
+  return {
+    lines,
+    subtotalCents: totalCents,
+    totalCents,
+    branchName: catalog.branch.name,
+    whatsappNumber: catalog.branch.whatsappNumber,
+    paymentMethod: input.paymentMethod,
+  };
 }
 
-export async function preparePublicOrder(input: PrepareOrderInput) {
+export function prepareOrderFromCatalog(input: PrepareOrderInput, catalog: OrderCatalog) {
+  const calculated = calculateOrderFromCatalog(input, catalog);
+  const { lines, totalCents } = calculated;
+  const message = buildOrderMessage(lines, totalCents, input.paymentMethod);
+  const whatsappUrls = buildOrderWhatsAppUrls(calculated.whatsappNumber, message);
+  if (!whatsappUrls) throw new PublicOrderError("BRANCH_UNAVAILABLE", "Esta sucursal no está disponible para pedidos por WhatsApp.");
+
+  return { ...calculated, message, ...whatsappUrls };
+}
+
+export async function getPublicOrderCatalog(input: PrepareOrderInput): Promise<OrderCatalog> {
   const prisma = getPrisma();
   const bowlIds = [...new Set(input.items.filter((item) => item.type === "BOWL").map((item) => item.productId))];
   const merchandiseIds = [...new Set(input.items.filter((item) => item.type === "MERCHANDISE").map((item) => item.productId))];
@@ -123,7 +142,7 @@ export async function preparePublicOrder(input: PrepareOrderInput) {
     prisma.branch.findUnique({ where: { id: input.branchId }, select: { id: true, name: true, isActive: true, whatsappNumber: true } }),
   ]);
 
-  return prepareOrderFromCatalog(input, {
+  return {
     orderingEnabled: content.orderingEnabled,
     cashEnabled: content.cashEnabled,
     transferEnabled: content.transferEnabled,
@@ -131,5 +150,9 @@ export async function preparePublicOrder(input: PrepareOrderInput) {
     bowls,
     merchandise,
     branch,
-  });
+  };
+}
+
+export async function preparePublicOrder(input: PrepareOrderInput) {
+  return prepareOrderFromCatalog(input, await getPublicOrderCatalog(input));
 }

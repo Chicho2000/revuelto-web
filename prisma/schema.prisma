@@ -48,6 +48,18 @@ enum TemporaryImageStatus {
   CONFIRMED
 }
 
+enum CheckoutPaymentMethod {
+  MERCADO_PAGO
+}
+
+enum CheckoutPaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+}
+
 model AdminUser {
   id         String    @id @default(uuid()) @db.Uuid
   authUserId String    @unique @db.Uuid
@@ -162,6 +174,7 @@ model Branch {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   businessHours  BusinessHour[]
+  checkoutOrders CheckoutOrder[]
 }
 
 model BusinessHour {
@@ -269,4 +282,32 @@ model MerchandiseItem {
   updatedAt   DateTime @updatedAt
 
   @@index([isActive, sortOrder, createdAt])
+}
+
+model CheckoutOrder {
+  id                        String                 @id @default(uuid()) @db.Uuid
+  publicCode                String                 @unique
+  clientRequestId           String                 @unique @db.Uuid
+  requestHash               String
+  branchId                  String?                @db.Uuid
+  paymentMethod             CheckoutPaymentMethod  @default(MERCADO_PAGO)
+  paymentStatus             CheckoutPaymentStatus  @default(PENDING)
+  currency                  String                 @default("ARS") @db.VarChar(3)
+  subtotalCents             Int
+  totalCents                Int
+  itemsSnapshot             Json
+  mercadoPagoIdempotencyKey String                 @unique @db.Uuid
+  mercadoPagoPreferenceId   String?                @unique
+  mercadoPagoPaymentId      String?                @unique
+  mercadoPagoStatus         String?
+  mercadoPagoInitPoint      String?
+  expiresAt                 DateTime
+  paidAt                    DateTime?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  branch                    Branch?                @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([paymentStatus, createdAt])
+  @@index([expiresAt])
+  @@index([branchId, createdAt])
 }

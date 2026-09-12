@@ -15,6 +15,7 @@ import {
   type PublicOrderProduct,
 } from "@/components/public/order/cart-provider";
 import { normalizeWhatsAppNumber } from "@/lib/orders/whatsapp";
+import { hasMercadoPagoConfiguration } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
         orderingEnabled: data.content.orderingEnabled,
         cashEnabled: data.content.cashEnabled,
         transferEnabled: data.content.transferEnabled,
-        mercadoPagoEnabled: data.content.mercadoPagoEnabled,
+        mercadoPagoEnabled: data.content.mercadoPagoEnabled && hasMercadoPagoConfiguration(),
       }
     : { orderingEnabled: false, cashEnabled: false, transferEnabled: false, mercadoPagoEnabled: false };
   const orderProducts: PublicOrderProduct[] = data.status === "ready"

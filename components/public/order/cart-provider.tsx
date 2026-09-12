@@ -65,9 +65,16 @@ type PreparedResponse = {
   }>;
   totalCents: number;
   mobileWhatsappUrl: string;
+  mobileFallbackWhatsappUrl: string;
   desktopWhatsappUrl: string;
   branchName: string;
   paymentMethod: OrderPaymentMethod;
+};
+
+type MercadoPagoCreateResponse = {
+  initPoint: string;
+  error?: string;
+  code?: string;
 };
 
 type CartContextValue = {
@@ -111,11 +118,15 @@ export function PublicOrderCartProvider({
   const [submitting, setSubmitting] = useState(false);
   const [prepared, setPrepared] = useState<PreparedResponse | null>(null);
   const [whatsappHref, setWhatsappHref] = useState("");
+  const [preparedForMobile, setPreparedForMobile] = useState(false);
+  const [showMobileFallback, setShowMobileFallback] = useState(false);
   const [recentlyChangedKey, setRecentlyChangedKey] = useState<string | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const liveTimeoutRef = useRef<number | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
+  const checkoutRequestIdRef = useRef<string | null>(null);
+  const submittingRef = useRef(false);
 
   const productMap = useMemo(() => new Map(products.map((product) => [product.key, product])), [products]);
   const pricesByKey = useMemo(() => new Map(products.map((product) => [product.key, product.unitPriceCents])), [products]);
@@ -146,6 +157,10 @@ export function PublicOrderCartProvider({
       // El carrito sigue funcionando durante la sesión aunque Storage esté bloqueado.
     }
   }, [hydrated, items]);
+
+  useEffect(() => {
+    checkoutRequestIdRef.current = null;
+  }, [branchId, items, paymentMethod]);
 
   const announce = useCallback((text: string) => {
     setMessage(text);
@@ -245,9 +260,28 @@ export function PublicOrderCartProvider({
       setMessage("Elegí una sucursal y una forma de pago.");
       return;
     }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setMessage("");
     try {
+      if (paymentMethod === "MERCADO_PAGO") {
+        const clientRequestId = checkoutRequestIdRef.current ?? window.crypto.randomUUID();
+        checkoutRequestIdRef.current = clientRequestId;
+        const response = await fetch("/api/orders/mercado-pago/create", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-idempotency-key": clientRequestId },
+          body: JSON.stringify({ branchId, paymentMethod, items }),
+        });
+        const body = await response.json().catch(() => null) as MercadoPagoCreateResponse | null;
+        if (!response.ok || !body?.initPoint) {
+          if (body?.code === "ITEM_UNAVAILABLE") router.refresh();
+          throw new Error(body?.error ?? "No pudimos iniciar el pago con Mercado Pago. Intentá nuevamente.");
+        }
+        window.location.assign(body.initPoint);
+        return;
+      }
+
       const response = await fetch("/api/orders/prepare", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -258,12 +292,16 @@ export function PublicOrderCartProvider({
         if (body?.code === "ITEM_UNAVAILABLE") router.refresh();
         throw new Error(body?.error ?? "No pudimos preparar el pedido. Intentá nuevamente.");
       }
+      const mobile = isMobileDevice(window.navigator);
       setPrepared(body);
-      setWhatsappHref(isMobileDevice(window.navigator) ? body.mobileWhatsappUrl : body.desktopWhatsappUrl);
+      setPreparedForMobile(mobile);
+      setShowMobileFallback(false);
+      setWhatsappHref(mobile ? body.mobileWhatsappUrl : body.desktopWhatsappUrl);
       setStep("prepared");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No pudimos preparar el pedido. Intentá nuevamente.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -272,6 +310,8 @@ export function PublicOrderCartProvider({
     setItems([]);
     setPrepared(null);
     setWhatsappHref("");
+    setPreparedForMobile(false);
+    setShowMobileFallback(false);
     setStep("cart");
     announce("Pedido vaciado.");
   }
@@ -332,10 +372,10 @@ export function PublicOrderCartProvider({
                 <fieldset><legend>Forma de pago</legend>
                   <label><input type="radio" name="payment" value="CASH" checked={paymentMethod === "CASH"} disabled={!configuration.cashEnabled} onChange={() => setPaymentMethod("CASH")} /> Efectivo {!configuration.cashEnabled && <small>No disponible</small>}</label>
                   <label><input type="radio" name="payment" value="TRANSFER" checked={paymentMethod === "TRANSFER"} disabled={!configuration.transferEnabled} onChange={() => setPaymentMethod("TRANSFER")} /> Transferencia {!configuration.transferEnabled && <small>No disponible</small>}</label>
-                  <label><input type="radio" name="payment" value="MERCADO_PAGO" disabled checked={false} readOnly /> Mercado Pago <small>{configuration.mercadoPagoEnabled ? "Integración pendiente" : "No disponible"}</small></label>
+                  <label><input type="radio" name="payment" value="MERCADO_PAGO" checked={paymentMethod === "MERCADO_PAGO"} disabled={!configuration.mercadoPagoEnabled} onChange={() => setPaymentMethod("MERCADO_PAGO")} /> Mercado Pago <small>{configuration.mercadoPagoEnabled ? "Checkout Pro · Prueba" : "No disponible"}</small></label>
                 </fieldset>
-                {!configuration.cashEnabled && !configuration.transferEnabled && <p className="form-message">Actualmente no hay formas de pago disponibles.</p>}
-                <button type="button" className="public-button public-button-dark" disabled={submitting || !branchId || !paymentMethod} onClick={() => void prepareOrder()}>{submitting ? "Validando…" : "Preparar pedido"}</button>
+                {!configuration.cashEnabled && !configuration.transferEnabled && !configuration.mercadoPagoEnabled && <p className="form-message">Actualmente no hay formas de pago disponibles.</p>}
+                <button type="button" className="public-button public-button-dark" disabled={submitting || !branchId || !paymentMethod} onClick={() => void prepareOrder()}>{submitting ? (paymentMethod === "MERCADO_PAGO" ? "Iniciando pago…" : "Validando…") : (paymentMethod === "MERCADO_PAGO" ? "Pagar con Mercado Pago" : "Preparar pedido")}</button>
                 {message && <p className="form-message" role="alert">{message}</p>}
               </div>
             )}
@@ -347,7 +387,12 @@ export function PublicOrderCartProvider({
                 <ul>{prepared.lines.map((line) => <li key={line.key}><span>{line.quantity} × {line.name}{line.variant ? ` — ${line.variant}` : ""}</span><strong>{currencyFormatter.format(line.subtotalCents / 100)}</strong></li>)}</ul>
                 <div className="public-cart-total"><span>Total actual</span><strong>{currencyFormatter.format(prepared.totalCents / 100)}</strong></div>
                 <p>Sucursal: <strong>{prepared.branchName}</strong></p>
-                <a className="public-button public-button-dark" href={whatsappHref} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+                <a className="public-button public-button-dark" href={whatsappHref} target="_blank" rel="noopener noreferrer" onClick={() => {
+                  if (preparedForMobile) setShowMobileFallback(true);
+                }}>Continuar por WhatsApp</a>
+                {preparedForMobile && showMobileFallback && (
+                  <a className="public-cart-back" href={prepared.mobileFallbackWhatsappUrl} target="_blank" rel="noopener noreferrer">¿No se abrió la app? Continuar en WhatsApp</a>
+                )}
                 <p className="public-cart-note">WhatsApp abrirá el chat con el texto precargado. Podés revisarlo antes de enviarlo; el carrito se conserva.</p>
                 <button type="button" className="public-cart-back" onClick={() => setStep("cart")}>Volver al pedido</button>
                 <button type="button" className="public-cart-clear" onClick={clearCart}>Vaciar pedido</button>

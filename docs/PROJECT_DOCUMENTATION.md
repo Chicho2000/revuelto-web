@@ -1,6 +1,6 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-08-27.
+Actualizada: 2026-09-10.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
@@ -13,8 +13,8 @@ usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
 - Responsable que reporta la dedicación: Ciro Pregot.
 - Trabajo acumulado informado antes de iniciar la ETAPA 2: **6 horas y 30 minutos**.
 - Trabajo incorporado entre `dd71a77` y `40b93b1`: **aproximadamente 5 horas y 30 minutos**.
-- Commit actual verificado: `de16cc4` (`feat: add public WhatsApp ordering`).
-- Trabajo incorporado entre `6b5b0ab` y `de16cc4`: **aproximadamente 10 horas**; incluye la recuperación del diseño de laptop, ajustes visuales, carrito/pedidos y verificaciones.
+- Commit base actual verificado: `9f5599d` (`Corrige apertura directa de WhatsApp en mobile`).
+- Trabajo incorporado entre `6b5b0ab` y `9f5599d`: **aproximadamente 10 horas**; incluye la recuperación del diseño de laptop, ajustes visuales, carrito/pedidos y verificaciones.
 - Dedicación acumulada informada hasta esta actualización: **aproximadamente 22 horas**.
 
 Este registro refleja el tiempo informado por Ciro para el alcance construido
@@ -35,7 +35,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Login y autorización OWNER | Implementados. |
 | Rate limiting y Turnstile | Implementados. |
 | Sesión administrativa | Implementada: 30 min inactiva o 1 h absoluta. |
-| Modelo Prisma y RLS | Ocho migraciones aplicadas, incluida la de pedidos y rate limit público. |
+| Modelo Prisma y RLS | Ocho migraciones aplicadas; la novena, aditiva para Checkout Pro, está creada y pendiente. |
 | Storage y procesamiento de imágenes | Infraestructura implementada; buckets revisados y corregidos a 5 MB con JPEG/PNG/WebP. |
 | CRUD de bowls | Implementado con dos tamaños, estado, imágenes seguras y borrado definitivo confirmado por nombre. |
 | CRUD de sucursales y horarios | Implementado con siete días, estado, teléfono opcional y borrado definitivo confirmado por nombre. |
@@ -44,7 +44,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Galería multimedia | Implementada con fotos y miniaturas enlazadas a Instagram; sin video alojado ni embeds. |
 | Merchandising | Catálogo administrable integrado al carrito; sin stock, variantes ni checkout individual. |
 | Pedidos web | Carrito local de bowls/merchandising, recálculo servidor, sucursal, efectivo/transferencia y apertura de WhatsApp implementados. No es un sistema interno de pedidos. |
-| Mercado Pago | Configuración prevista, pero integración real, credenciales, Checkout Pro, webhook y confirmación de pago no implementados. |
+| Mercado Pago | Checkout Pro TEST implementado en código con preference, webhook firmado y verificación server-side. Migración, configuración externa y prueba manual real pendientes. |
 
 ## Tecnologías
 
@@ -62,6 +62,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Cloudflare Turnstile | Verificación humana de cada login. |
 | Sharp | Inspección y validación de imágenes sin transformación. |
 | Sentry | Captura de errores sanitizada para servidor, edge y navegador. |
+| SDK oficial `mercadopago` | Preferences API, consulta de pagos y validación de `x-signature`, exclusivamente en servidor. |
 | ESLint, Node test runner y TSX | Calidad estática y pruebas unitarias. |
 | Vercel | Despliegue previsto. |
 
@@ -75,6 +76,9 @@ La portada pública usa `app/public.css` para separar sus estilos del panel admi
 Browser
   ├─ Carta pública ──────────────► Next.js Server Components ─► Prisma ─► PostgreSQL
   ├─ Carrito localStorage ───────► POST /api/orders/prepare ───► Prisma ─► WhatsApp precargado
+  ├─ Mercado Pago TEST ─────────► CheckoutOrder + Preference ─► Checkout Pro
+  │                                 ▲ webhook firmado + GET payment
+  │                                 └─ return no-store ───────► WhatsApp solo APPROVED
   └─ Panel /admin
        ├─ Supabase Auth cookies ─► proxy.ts (sesión rápida)
        ├─ Páginas/handlers ──────► Auth + Prisma AdminUser OWNER/activo
@@ -103,6 +107,10 @@ Browser
 | --- | --- |
 | `/` | Página pública con navegación condicional para Carta, Promociones, Sucursales, Galería y Merchandising. |
 | `POST /api/orders/prepare` | Valida carrito/configuración/sucursal, recalcula precios y devuelve el enlace de WhatsApp; aplica rate limit persistente. |
+| `POST /api/orders/mercado-pago/create` | Recalcula el pedido, crea/reutiliza `CheckoutOrder` y crea una Preference TEST idempotente. |
+| `GET /api/orders/mercado-pago/status` | Devuelve una vista pública mínima por código aleatorio, sin cache; nunca acepta estado del cliente. |
+| `POST /api/webhooks/mercado-pago` | Valida la firma del evento de pagos y reconcilia el pago consultando Mercado Pago. |
+| `/checkout/mercado-pago/{success,pending,failure}` | Retornos dinámicos/no-store que muestran exclusivamente el estado local verificado. |
 | `/admin/login` | Acceso administrativo; no debe redirigirse a sí misma. |
 
 ### Panel protegido
@@ -172,15 +180,27 @@ La suite `tests/public-navigation.test.ts` cubre los ocho contratos: ausencia/pr
 
 ## Pedidos web y WhatsApp
 
-Revuelto agiliza el pedido del cliente, pero no reemplaza el sistema operativo del local. No existen estados de cocina, comandas, stock, despacho, entrega ni `/admin/orders`. El flujo implementado es: agregar Bowl SMALL/LARGE o merchandising, revisar cantidades, elegir Branch activa con WhatsApp válido, elegir efectivo o transferencia, validar en servidor y abrir el chat correcto con el resumen precargado.
+Revuelto agiliza el pedido del cliente, pero no reemplaza el sistema operativo del local. No existen estados de cocina, comandas, stock, despacho, entrega ni `/admin/orders`. El flujo implementado es: agregar Bowl SMALL/LARGE o merchandising, revisar cantidades, elegir Branch activa con WhatsApp válido y elegir efectivo, transferencia o, si está completamente configurado, Mercado Pago TEST.
 
 El carrito persiste como `{ version: 1, items }` en `revuelto-cart-v1`. Solo guarda tipo, UUID de producto, tamaño de bowl y cantidad. Un valor inválido, una versión desconocida o cantidades fuera de límites se descartan sin romper la home. Los límites son 1–20 unidades por línea, 50 líneas y 50 unidades totales, aplicados tanto en cliente como con Zod en servidor.
 
 `POST /api/orders/prepare` no acepta nombres, precios, subtotal, total ni número de WhatsApp. Consulta Prisma, exige productos activos/disponibles, tamaño existente, precio positivo, Branch activa y método habilitado. El dinero se convierte a centavos desde Decimal/string, evitando usar aritmética flotante para el total confiable. El endpoint admite 20 preparaciones por IP cada 10 minutos mediante `PublicOrderRateLimit` y HMAC con `SECURITY_HMAC_SECRET`.
 
-El resultado muestra al cliente el precio vigente y conserva el carrito. El servidor construye desde el mismo teléfono y mensaje validados `whatsapp://send` para mobile y `web.whatsapp.com/send` para desktop; el cliente solo elige el enlace mediante `navigator.userAgentData.mobile` o un fallback de user-agent para Android/iPhone/iPad. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada.
+El resultado muestra al cliente el precio vigente y conserva el carrito. El servidor construye desde el mismo teléfono y mensaje validados `whatsapp://send` como enlace mobile principal, `wa.me/{phone}` como fallback mobile y `web.whatsapp.com/send` para desktop; el cliente solo elige el flujo mediante `navigator.userAgentData.mobile` o un fallback de user-agent para Android/iPhone/iPad. Después de intentar abrir la app, mobile ofrece manualmente el fallback sin temporizadores, bucles ni aperturas automáticas adicionales. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada.
 
-`SiteContent` agrega `orderingEnabled`, `cashEnabled`, `transferEnabled` y `mercadoPagoEnabled`, editables por OWNER desde Contenido. Si pedidos está apagado, botones y carrito no se renderizan. Mercado Pago permanece siempre no disponible públicamente aunque su flag se marque, porque todavía no existe integración real.
+`SiteContent` agrega `orderingEnabled`, `cashEnabled`, `transferEnabled` y `mercadoPagoEnabled`, editables por OWNER desde Contenido. Si pedidos está apagado, botones y carrito no se renderizan. Mercado Pago solo aparece si `orderingEnabled && mercadoPagoEnabled` y el servidor valida modo `TEST`, Access Token con prefijo TEST, Webhook Secret y `APP_BASE_URL` HTTPS pública. La Public Key no participa del redirect y no se carga un SDK frontend.
+
+### Checkout Pro TEST
+
+`POST /api/orders/mercado-pago/create` recibe únicamente el esquema estricto del carrito y un `x-idempotency-key` UUID. Reconsulta `SiteContent`, Branch, Bowl/BowlSize y MerchandiseItem, convierte cada precio actual a centavos enteros y persiste un `CheckoutOrder` técnico de 24 horas. El snapshot versión 1 conserva tipo, sourceId, nombre, tamaño/oz cuando corresponde, cantidad, unitario y subtotal; cada subtotal y la suma total vuelven a validarse antes de crear la Preference o generar WhatsApp.
+
+La Preference se crea server-side con el SDK oficial, items ARS, `external_reference = publicCode`, `auto_return = approved`, vencimiento de 24 horas y back URLs bajo `APP_BASE_URL`. El cliente recibe únicamente un `init_point` HTTPS validado como dominio de Mercado Pago. La idempotencia combina el UUID del navegador, un HMAC del payload confiable, constraints UNIQUE locales, una key estable enviada al proveedor y bloqueo de doble submit. Un retry idéntico reutiliza la operación/preference; un mismo UUID con otro payload devuelve conflicto.
+
+`POST /api/webhooks/mercado-pago` acepta solo `payment.created` y `payment.updated`, exige `x-signature`, `x-request-id` y `data.id` coherentes y rechaza modo live. Aun con firma válida, consulta el pago real por SDK. Solo un pago TEST cuya `external_reference`, cantidad exacta en centavos y moneda ARS coincidan puede pasar a `APPROVED`. Los duplicados no repiten efectos, un aprobado no retrocede a pendiente/rechazado y un estado desconocido se conserva de manera segura como pendiente. Los fallos transitorios responden 503 para permitir reintento; firma inválida 401, body inválido 400, payload grande 413 y éxito 200 (evento live ignorado: 202).
+
+Mercado Pago documenta que las compras hechas con credenciales de prueba no envían notificaciones. Por eso el webhook se valida en **Tus integraciones → Tests → Probar notificación**, mientras que el retorno también consulta el payment ID real antes de releer el estado. Esta limitación del ambiente TEST no autoriza a confiar en parámetros de la back URL.
+
+Las páginas success, pending y failure no confían en `status`, `preference_id` ni otros query params de Mercado Pago. Buscan un código público `RVT-` con 96 bits aleatorios y, si Mercado Pago aporta un payment ID numérico, vuelven a consultar ese pago desde servidor antes de releer la fila. Solo un registro persistido `APPROVED` obtiene los tres enlaces de WhatsApp y el texto “Pago confirmado”, generados desde el snapshot. Un checkout abandonado conserva el carrito local y queda pendiente; uno vencido exige iniciar otro para usar precios actuales.
 
 ## Base de datos y migraciones
 
@@ -201,6 +221,7 @@ El resultado muestra al cliente el precio vigente y conserva el carrito. El serv
 | `AdminSessionActivity` | HMAC de sesión administrativa, actividad y vencimientos. |
 | `TemporaryImage` | Estado y rutas server-generated de staging/procesamiento. |
 | `PublicOrderRateLimit` | Ventana y contador por HMAC de IP para proteger el endpoint público de preparación. |
+| `CheckoutOrder` | Operación técnica mínima para correlacionar Preference/pago, snapshot, totales ARS, estado y WhatsApp confirmado; no almacena datos de tarjeta ni estados de cocina. |
 
 Reglas de bowls: cada bowl tendrá exactamente SMALL (25 oz) y LARGE (35 oz)
 en cada creación o edición mediante Zod y una transacción Prisma.
@@ -234,10 +255,11 @@ Cada alta o edición de galería se confirma solo con el botón Guardar de su pr
 | `20260804000200_add_site_content_and_gallery` | Aplicada | Amplía `SiteContent`, crea el singleton y `GalleryItem`, agrega el destino de imagen y habilita RLS. |
 | `20260819000100_add_merchandise` | Aplicada | Agrega `MERCHANDISE` al destino temporal, crea `MerchandiseItem`, su índice, check de precio positivo y RLS sin políticas. |
 | `20260822000100_add_public_ordering` | Aplicada | Agrega cuatro flags a `SiteContent` y crea `PublicOrderRateLimit` con RLS sin políticas. |
+| `20260910000100_add_mercado_pago_checkout` | Pendiente | Crea enums de método/estado, `CheckoutOrder`, checks de total/ARS, UNIQUE, índices, FK a Branch con `ON DELETE SET NULL` y RLS sin políticas. La relación es obligatoria al crear desde la aplicación, pero no bloquea el borrado posterior de una sucursal; el snapshot conserva sus datos históricos. |
 
-El 2026-08-27 `npx prisma migrate status` encontró ocho migraciones y confirmó
-`Database schema is up to date!`; incluida
-`20260822000100_add_public_ordering`.
+El 2026-09-10 `npx prisma migrate status` encontró nueve migraciones y reportó
+solamente `20260910000100_add_mercado_pago_checkout` sin aplicar. No se ejecutó
+ningún comando de aplicación de migraciones.
 Nunca modificar una migración aplicada. La migración 003 calcula
 `absoluteExpiresAt = createdAt + 1 hour` para las sesiones existentes antes de
 marcar la columna como obligatoria.
@@ -370,6 +392,11 @@ Copiar `.env.example` a `.env.local`; nunca versionar valores reales.
 | `CRON_SECRET` | Privada | Bearer aleatorio de 16+ caracteres para Vercel Cron; nunca `NEXT_PUBLIC`. |
 | `SENTRY_DSN` | Privada | DSN usada por servidor y edge; configurada localmente sin documentar su valor. |
 | `NEXT_PUBLIC_SENTRY_DSN` | Pública | DSN de ingesta para capturar errores del navegador; no es un token de cuenta. |
+| `MERCADO_PAGO_MODE` | Privada/configuración | Debe ser exactamente `TEST`; cualquier otro valor oculta y bloquea la integración. |
+| `MERCADO_PAGO_ACCESS_TOKEN` | Privada | Token server-side; se exige prefijo TEST y nunca se devuelve ni se usa en cliente. |
+| `MERCADO_PAGO_WEBHOOK_SECRET` | Privada | Secret de firma obtenida al configurar Webhooks en la integración TEST. |
+| `APP_BASE_URL` | Privada/configuración | Origen HTTPS público exacto del Preview para back URLs, sin localhost, credenciales, query ni hash. |
+| `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY` | Pública, no utilizada | Existe para el entorno TEST, pero Checkout Pro por `init_point` no la necesita. |
 
 Ningún Client Component lee `process.env.TURNSTILE_SITE_KEY` directamente.
 
@@ -395,7 +422,10 @@ npm run dev
 npm run lint
 npm test
 npm run build
+npx tsc --noEmit
+npx prisma generate
 npx prisma validate
+npm audit
 ```
 
 `postinstall` ejecuta `prisma generate`. El build y TypeScript deben pasar antes
@@ -411,12 +441,16 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
    que use el nuevo esquema.
 4. Crear buckets y configurar Turnstile para hostnames de cada entorno.
 5. Mantener `CRON_SECRET` configurado fuera de Git. `vercel.json` fue validado y registra el cron diario en producción.
+6. Para el Preview de Mercado Pago, configurar solo credenciales TEST, Webhook Secret y `APP_BASE_URL`; revisar y aplicar manualmente la migración pendiente antes de habilitar el flag.
+7. En Mercado Pago seleccionar eventos de **Pagos** y apuntar a `https://<preview>/api/webhooks/mercado-pago`. Si Vercel Authentication protege el Preview, la llamada externa será bloqueada antes de Next.js. Mantener la protección y usar manualmente un Protection Bypass for Automation en la URL del webhook, o un deployment de prueba público temporal autorizado; nunca documentar el valor del bypass.
+   Con bypass, la plantilla es `https://<preview>/api/webhooks/mercado-pago?x-vercel-protection-bypass=<SECRET_DE_AUTOMATION>`; Mercado Pago agregará sus parámetros de notificación. La secret de firma se copia desde **Tus integraciones → Webhooks → Configurar notificaciones** directamente a `MERCADO_PAGO_WEBHOOK_SECRET`, nunca al chat ni al repositorio.
 
 ## Próxima etapa
 
 - Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy, incluyendo la apertura directa `whatsapp://send` en mobile y WhatsApp Web en desktop.
-- Integrar Mercado Pago en una etapa separada: revisar documentación oficial vigente, agregar variables privadas, crear una entidad técnica mínima `CheckoutOrder`, Checkout Pro, back URLs, webhook firmado e idempotente y verificación server-side de monto/moneda/estado. Nunca confiar en `approved` de la URL de retorno.
-- Añadir pruebas de integración contra un entorno de prueba aislado.
+- Revisar/aplicar con autorización la migración Checkout Pro, completar variables TEST en Preview y configurar el webhook de pagos sin copiar credenciales a Production.
+- Probar manualmente con Seller y Buyer Test separados: aprobado, pendiente y rechazado, cada retorno, actualización por consulta, simulador de webhook, WhatsApp post-pago y abandono del checkout. Los tests automáticos usan mocks y no realizaron pagos ni llamadas reales.
+- Resolver en una tarea separada los 8 advisories actuales de `npm audit` (1 crítico, 7 altos) en Next.js, Sharp y dependencias transitivas de Prisma/validación. `mercadopago@3.6.1` no aparece en esas cadenas; no usar `npm audit fix --force` sin revisar el downgrade rompiente de Prisma que propone.
 - Continuar monitoreando las ejecuciones del cron de limpieza en Vercel.
 
 ## Mantenimiento documental

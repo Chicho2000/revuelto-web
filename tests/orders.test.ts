@@ -189,7 +189,8 @@ test("respeta pedidos, efectivo, transferencia y Mercado Pago deshabilitados", (
   expectOrderError(() => prepareOrderFromCatalog(input([{ ...small, quantity: 1 }]), catalog({ orderingEnabled: false })), "ORDERING_DISABLED");
   expectOrderError(() => prepareOrderFromCatalog(input([{ ...small, quantity: 1 }]), catalog({ cashEnabled: false })), "PAYMENT_UNAVAILABLE");
   expectOrderError(() => prepareOrderFromCatalog(input([{ ...small, quantity: 1 }], "TRANSFER"), catalog({ transferEnabled: false })), "PAYMENT_UNAVAILABLE");
-  expectOrderError(() => prepareOrderFromCatalog(input([{ ...small, quantity: 1 }], "MERCADO_PAGO"), catalog({ mercadoPagoEnabled: true })), "PAYMENT_UNAVAILABLE");
+  expectOrderError(() => prepareOrderFromCatalog(input([{ ...small, quantity: 1 }], "MERCADO_PAGO"), catalog({ mercadoPagoEnabled: false })), "PAYMENT_UNAVAILABLE");
+  assert.equal(prepareOrderFromCatalog(input([{ ...small, quantity: 1 }], "MERCADO_PAGO"), catalog({ mercadoPagoEnabled: true })).paymentMethod, "MERCADO_PAGO");
 });
 
 test("genera mensajes claros para efectivo y transferencia con mezcla de productos", () => {
@@ -212,9 +213,13 @@ test("WhatsApp construye URLs mobile y desktop desde el mismo número y mensaje"
   assert.ok(urls);
   assert.ok(urls.mobileWhatsappUrl.startsWith("whatsapp://send?"));
   const mobileParams = new URLSearchParams(urls.mobileWhatsappUrl.slice("whatsapp://send?".length));
+  const mobileFallback = new URL(urls.mobileFallbackWhatsappUrl);
   const desktop = new URL(urls.desktopWhatsappUrl);
   assert.equal(mobileParams.get("phone"), "5493415551234");
   assert.equal(mobileParams.get("text"), message);
+  assert.equal(mobileFallback.hostname, "wa.me");
+  assert.equal(mobileFallback.pathname, "/5493415551234");
+  assert.equal(mobileFallback.searchParams.get("text"), message);
   assert.equal(desktop.hostname, "web.whatsapp.com");
   assert.equal(desktop.pathname, "/send");
   assert.equal(desktop.searchParams.get("phone"), "5493415551234");
@@ -233,11 +238,13 @@ test("WhatsApp conserva Unicode completo en el mensaje y tras codificar la URL",
     assert.ok(message.includes(symbol), `El mensaje debe conservar ${symbol}`);
     const mobileText = new URLSearchParams(urls.mobileWhatsappUrl.slice("whatsapp://send?".length)).get("text");
     assert.equal(mobileText?.includes(symbol), true, `La URL mobile debe conservar ${symbol}`);
+    assert.equal(new URL(urls.mobileFallbackWhatsappUrl).searchParams.get("text")?.includes(symbol), true, `El fallback mobile debe conservar ${symbol}`);
     assert.equal(new URL(urls.desktopWhatsappUrl).searchParams.get("text")?.includes(symbol), true, `La URL desktop debe conservar ${symbol}`);
   }
   const replacementCharacter = String.fromCodePoint(0xfffd);
   assert.equal(message.includes(replacementCharacter), false);
   assert.equal(urls.mobileWhatsappUrl.includes(replacementCharacter), false);
+  assert.equal(urls.mobileFallbackWhatsappUrl.includes(replacementCharacter), false);
   assert.equal(urls.desktopWhatsappUrl.includes(replacementCharacter), false);
 
   const routeSource = readFileSync(path.resolve("app/api/orders/prepare/route.ts"), "utf8");
@@ -249,10 +256,13 @@ test("la URL de WhatsApp conserva exactamente el mensaje Unicode aislado", () =>
   const urls = buildOrderWhatsAppUrls("+54 9 341 555 1234", testMessage);
   assert.ok(urls);
   const mobileDecoded = new URLSearchParams(urls.mobileWhatsappUrl.slice("whatsapp://send?".length)).get("text");
+  const mobileFallbackDecoded = new URL(urls.mobileFallbackWhatsappUrl).searchParams.get("text");
   const desktopDecoded = new URL(urls.desktopWhatsappUrl).searchParams.get("text");
   assert.equal(mobileDecoded, testMessage);
+  assert.equal(mobileFallbackDecoded, testMessage);
   assert.equal(desktopDecoded, testMessage);
   assert.equal(mobileDecoded?.includes(String.fromCodePoint(0xfffd)), false);
+  assert.equal(mobileFallbackDecoded?.includes(String.fromCodePoint(0xfffd)), false);
   assert.equal(desktopDecoded?.includes(String.fromCodePoint(0xfffd)), false);
 });
 

@@ -23,6 +23,21 @@ const cronEnvironmentSchema = z.object({
   CRON_SECRET: z.string().min(16),
 });
 
+const mercadoPagoEnvironmentSchema = z.object({
+  MERCADO_PAGO_ACCESS_TOKEN: z.string().min(20).startsWith("TEST-"),
+  MERCADO_PAGO_WEBHOOK_SECRET: z.string().min(16),
+  MERCADO_PAGO_MODE: z.literal("TEST"),
+  APP_BASE_URL: z.url(),
+}).transform((environment, context) => {
+  const baseUrl = new URL(environment.APP_BASE_URL);
+  const localHostname = baseUrl.hostname === "localhost" || baseUrl.hostname === "127.0.0.1" || baseUrl.hostname === "::1" || baseUrl.hostname === "[::1]";
+  if (baseUrl.protocol !== "https:" || localHostname || baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) {
+    context.addIssue({ code: "custom", message: "APP_BASE_URL debe ser una URL HTTPS pública sin credenciales, query ni hash." });
+    return z.NEVER;
+  }
+  return { ...environment, APP_BASE_URL: baseUrl.toString().replace(/\/$/, "") };
+});
+
 export type SupabaseEnvironment = z.infer<typeof supabaseEnvironmentSchema>;
 
 export function getSupabaseEnvironment(): SupabaseEnvironment | null {
@@ -75,6 +90,24 @@ export function getCronEnvironment() {
   });
 
   return result.success ? result.data : null;
+}
+
+export function getMercadoPagoEnvironment() {
+  return parseMercadoPagoEnvironment({
+    MERCADO_PAGO_ACCESS_TOKEN: process.env.MERCADO_PAGO_ACCESS_TOKEN,
+    MERCADO_PAGO_WEBHOOK_SECRET: process.env.MERCADO_PAGO_WEBHOOK_SECRET,
+    MERCADO_PAGO_MODE: process.env.MERCADO_PAGO_MODE,
+    APP_BASE_URL: process.env.APP_BASE_URL,
+  });
+}
+
+export function parseMercadoPagoEnvironment(environment: Record<string, unknown>) {
+  const result = mercadoPagoEnvironmentSchema.safeParse(environment);
+  return result.success ? result.data : null;
+}
+
+export function hasMercadoPagoConfiguration() {
+  return getMercadoPagoEnvironment() !== null;
 }
 
 export function getConfigurationIssues() {

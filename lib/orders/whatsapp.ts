@@ -3,8 +3,11 @@ import type { OrderPaymentMethod } from "@/lib/orders/schema";
 export type PreparedOrderLine = {
   key: string;
   type: "BOWL" | "MERCHANDISE";
+  sourceId: string;
   name: string;
   variant: string | null;
+  size: "SMALL" | "LARGE" | null;
+  ounces: number | null;
   quantity: number;
   unitPriceCents: number;
   subtotalCents: number;
@@ -65,6 +68,18 @@ export function buildOrderMessage(lines: readonly PreparedOrderLine[], totalCent
   return sections.join("\n");
 }
 
+export function buildConfirmedMercadoPagoMessage(
+  lines: readonly PreparedOrderLine[],
+  totalCents: number,
+  publicCode: string,
+) {
+  const message = buildOrderMessage(lines, totalCents, "MERCADO_PAGO");
+  return message.replace(
+    "\n\n¡Gracias! 🙌",
+    `\n✅ Pago confirmado\n\nCódigo: ${publicCode}\n\n¡Gracias! 🙌`,
+  );
+}
+
 export function buildOrderWhatsAppUrls(number: string, message: string) {
   const normalized = normalizeWhatsAppNumber(number);
   if (!normalized) return null;
@@ -74,12 +89,16 @@ export function buildOrderWhatsAppUrls(number: string, message: string) {
     text: message,
   });
 
+  const mobileFallbackUrl = new URL(`https://wa.me/${normalized}`);
+  mobileFallbackUrl.searchParams.set("text", message);
+
   const desktopUrl = new URL("https://web.whatsapp.com/send");
   desktopUrl.searchParams.set("phone", normalized);
   desktopUrl.searchParams.set("text", message);
 
   return {
     mobileWhatsappUrl: `whatsapp://send?${mobileParams.toString()}`,
+    mobileFallbackWhatsappUrl: mobileFallbackUrl.toString(),
     desktopWhatsappUrl: desktopUrl.toString(),
   };
 }

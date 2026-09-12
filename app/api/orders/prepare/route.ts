@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Revisá los productos, la sucursal y la forma de pago." }, { status: 400 });
   }
+  if (parsed.data.paymentMethod === "MERCADO_PAGO") {
+    return NextResponse.json({ error: "Usá el checkout de Mercado Pago para iniciar este pago." }, { status: 400 });
+  }
 
   try {
     const throttle = await consumePublicOrderRateLimit(getPublicOrderClientAddress(request.headers));
