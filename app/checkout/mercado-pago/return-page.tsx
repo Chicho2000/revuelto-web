@@ -16,6 +16,9 @@ type ReturnLogDetails = {
   providerStatus?: number;
   errorCode?: string;
   errorName?: string;
+  reconcileOutcome?: string;
+  checkoutState?: string;
+  paymentStatus?: string | null;
 };
 
 function safeLogValue(value: unknown) {
@@ -67,8 +70,14 @@ export async function MercadoPagoReturnPage({
 }) {
   const params = await searchParams;
   const checkout = await getPublicCheckoutView(params.code ?? "", params.payment_id, (event) => {
-    const details = {
+    const paymentStatus = event.paymentStatus === null
+      ? null
+      : safeLogValue(event.paymentStatus);
+    const details: ReturnLogDetails = {
       ...(event.paymentId ? { paymentId: event.paymentId } : {}),
+      ...(safeLogValue(event.reconcileOutcome) ? { reconcileOutcome: event.reconcileOutcome } : {}),
+      ...(safeLogValue(event.checkoutState) ? { checkoutState: event.checkoutState } : {}),
+      ...(paymentStatus !== undefined ? { paymentStatus } : {}),
       ...(event.error !== undefined ? sanitizedErrorDetails(event.error) : {}),
     };
     if (event.error !== undefined) {

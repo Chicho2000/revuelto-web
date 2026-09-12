@@ -491,6 +491,7 @@ test("vista pública confirma WhatsApp solo para APPROVED y marca vencimiento", 
   const rejected = buildPublicCheckoutView(checkoutRecord({ paymentStatus: "REJECTED" }), now);
   assert.equal(rejected?.whatsapp, null);
   const approved = buildPublicCheckoutView(checkoutRecord({ paymentStatus: "APPROVED" }), now);
+  assert.equal(approved?.paymentStatus, "APPROVED");
   assert.match(new URL(approved!.whatsapp!.desktopWhatsappUrl).searchParams.get("text")!, /Pago confirmado/);
   const expired = buildPublicCheckoutView(checkoutRecord({ expiresAt: new Date("2026-09-09T12:00:00.000Z") }), now);
   assert.equal(expired?.paymentStatus, "EXPIRED");
@@ -547,5 +548,12 @@ test("retorno success propaga payment_id y actualizar vuelve a reconciliar en se
   assert.match(checkout, /reconcileMercadoPagoPayment\(paymentHint/);
   assert.doesNotMatch(checkout, /reconcileMercadoPagoPayment\(paymentHint\)\.catch\(\(\) => undefined\)/);
   assert.match(returnPage, /MP_RETURN_RECONCILE_FAILED/);
+  assert.match(returnPage, /event\.reconcileOutcome/);
+  assert.match(returnPage, /event\.checkoutState/);
+  assert.match(returnPage, /event\.paymentStatus/);
+  assert.match(checkout, /stage: "MP_RETURN_FINAL_STATE"/);
+  assert.match(checkout, /checkoutState: checkout\.paymentStatus/);
+  assert.match(checkout, /paymentStatus: checkout\.mercadoPagoStatus/);
+  assert.match(returnPage, /checkout\.paymentStatus === "APPROVED"/);
   assert.match(refreshButton, /router\.refresh\(\)/);
 });

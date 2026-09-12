@@ -205,10 +205,20 @@ export type MercadoPagoReturnStageEvent = {
     | "MP_RETURN_RECONCILE_OK"
     | "MP_RETURN_ORDER_RELOAD_START"
     | "MP_RETURN_ORDER_RELOAD_FAILED"
-    | "MP_RETURN_ORDER_RELOAD_OK";
+    | "MP_RETURN_ORDER_RELOAD_OK"
+    | "MP_RETURN_FINAL_STATE";
   paymentId?: string;
   error?: unknown;
   failureKind?: "PROVIDER" | "REPOSITORY";
+  reconcileOutcome?:
+    | "IGNORED"
+    | "DUPLICATE_ATTEMPT"
+    | "AMOUNT_OR_CURRENCY_MISMATCH"
+    | "STATUS_REGRESSION_IGNORED"
+    | "ALREADY_PROCESSED"
+    | "UPDATED";
+  checkoutState?: CheckoutPaymentStatus;
+  paymentStatus?: string | null;
 };
 
 const returnReconcileStageMap: Record<
@@ -391,7 +401,7 @@ export async function getPublicCheckoutView(
     onStage?.({ stage: "MP_RETURN_RECONCILE_START", paymentId: paymentHint });
     let failureKind: MercadoPagoReturnStageEvent["failureKind"];
     try {
-      await reconcileMercadoPagoPayment(paymentHint, {
+      const result = await reconcileMercadoPagoPayment(paymentHint, {
         onStage: ({ stage, error }) => {
           const returnStage = returnReconcileStageMap[stage];
           if (error !== undefined) {
@@ -402,7 +412,11 @@ export async function getPublicCheckoutView(
           onStage?.({ stage: returnStage, paymentId: paymentHint, error });
         },
       });
-      onStage?.({ stage: "MP_RETURN_RECONCILE_OK", paymentId: paymentHint });
+      onStage?.({
+        stage: "MP_RETURN_RECONCILE_OK",
+        paymentId: paymentHint,
+        reconcileOutcome: result.outcome,
+      });
     } catch (error) {
       onStage?.({
         stage: "MP_RETURN_RECONCILE_FAILED",
@@ -425,6 +439,11 @@ export async function getPublicCheckoutView(
   }
   if (!checkout) return null;
   onStage?.({ stage: "MP_RETURN_ORDER_RELOAD_OK" });
+  onStage?.({
+    stage: "MP_RETURN_FINAL_STATE",
+    checkoutState: checkout.paymentStatus,
+    paymentStatus: checkout.mercadoPagoStatus,
+  });
   return buildPublicCheckoutView(checkout);
 }
 
