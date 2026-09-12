@@ -155,18 +155,33 @@ test("snapshot congela nombres, tamaños, cantidades y centavos exactos", () => 
   }).success, false);
 });
 
-test("la configuración exige Access Token TEST, webhook secret y APP_BASE_URL HTTPS pública", () => {
+test("la configuración TEST valida la estructura del Access Token y el resto del entorno", () => {
   const valid = {
-    MERCADO_PAGO_ACCESS_TOKEN: "TEST-access-token-long-enough",
+    MERCADO_PAGO_ACCESS_TOKEN: "structurally-valid-access-token",
     MERCADO_PAGO_WEBHOOK_SECRET: "webhook-secret-long-enough",
     MERCADO_PAGO_MODE: "TEST",
     APP_BASE_URL: "https://revuelto-preview.example.com/",
   };
   assert.equal(parseMercadoPagoEnvironment(valid)?.APP_BASE_URL, "https://revuelto-preview.example.com");
   assert.equal(parseMercadoPagoEnvironment({ ...valid, MERCADO_PAGO_ACCESS_TOKEN: undefined }), null);
-  assert.equal(parseMercadoPagoEnvironment({ ...valid, MERCADO_PAGO_ACCESS_TOKEN: "APP_USR-production-token-long" }), null);
+  assert.equal(parseMercadoPagoEnvironment({ ...valid, MERCADO_PAGO_ACCESS_TOKEN: "short-token" }), null);
+  assert.equal(parseMercadoPagoEnvironment({ ...valid, MERCADO_PAGO_ACCESS_TOKEN: " ".repeat(20) }), null);
+  assert.equal(parseMercadoPagoEnvironment({ ...valid, MERCADO_PAGO_MODE: "PRODUCTION" }), null);
   assert.equal(parseMercadoPagoEnvironment({ ...valid, MERCADO_PAGO_WEBHOOK_SECRET: undefined }), null);
   assert.equal(parseMercadoPagoEnvironment({ ...valid, APP_BASE_URL: "http://localhost:3000" }), null);
+});
+
+test("acepta un Access Token de prueba ficticio con formato APP_USR", () => {
+  const accessToken = "APP_USR-fictitious-test-token-1234567890";
+  const environment = parseMercadoPagoEnvironment({
+    MERCADO_PAGO_ACCESS_TOKEN: accessToken,
+    MERCADO_PAGO_WEBHOOK_SECRET: "webhook-secret-long-enough",
+    MERCADO_PAGO_MODE: "TEST",
+    APP_BASE_URL: "https://revuelto-preview.example.com",
+  });
+
+  assert.equal(environment?.MERCADO_PAGO_ACCESS_TOKEN, accessToken);
+  assert.equal(environment?.MERCADO_PAGO_MODE, "TEST");
 });
 
 test("preference usa ARS, external_reference, back_urls y monto exacto", () => {
@@ -423,16 +438,16 @@ test("la consulta fallida del gateway no crea ni actualiza estados", async () =>
 });
 
 test("vista pública confirma WhatsApp solo para APPROVED y marca vencimiento", () => {
-  const pending = buildPublicCheckoutView(checkoutRecord());
+  const pending = buildPublicCheckoutView(checkoutRecord(), now);
   assert.equal(pending?.paymentStatus, "PENDING");
   assert.equal(pending?.whatsapp, null);
-  const rejected = buildPublicCheckoutView(checkoutRecord({ paymentStatus: "REJECTED" }));
+  const rejected = buildPublicCheckoutView(checkoutRecord({ paymentStatus: "REJECTED" }), now);
   assert.equal(rejected?.whatsapp, null);
-  const approved = buildPublicCheckoutView(checkoutRecord({ paymentStatus: "APPROVED" }));
+  const approved = buildPublicCheckoutView(checkoutRecord({ paymentStatus: "APPROVED" }), now);
   assert.match(new URL(approved!.whatsapp!.desktopWhatsappUrl).searchParams.get("text")!, /Pago confirmado/);
   const expired = buildPublicCheckoutView(checkoutRecord({ expiresAt: new Date("2026-09-09T12:00:00.000Z") }), now);
   assert.equal(expired?.paymentStatus, "EXPIRED");
-  assert.equal(buildPublicCheckoutView(checkoutRecord({ totalCents: 1 })), null);
+  assert.equal(buildPublicCheckoutView(checkoutRecord({ totalCents: 1 }), now), null);
 });
 
 test("WhatsApp confirmado usa snapshot, código y las tres URLs con Unicode intacto", () => {

@@ -188,7 +188,7 @@ El carrito persiste como `{ version: 1, items }` en `revuelto-cart-v1`. Solo gua
 
 El resultado muestra al cliente el precio vigente y conserva el carrito. El servidor construye desde el mismo teléfono y mensaje validados `whatsapp://send` como enlace mobile principal, `wa.me/{phone}` como fallback mobile y `web.whatsapp.com/send` para desktop; el cliente solo elige el flujo mediante `navigator.userAgentData.mobile` o un fallback de user-agent para Android/iPhone/iPad. Después de intentar abrir la app, mobile ofrece manualmente el fallback sin temporizadores, bucles ni aperturas automáticas adicionales. Los números argentinos completos que empiezan con `54` se conservan y un celular local de 10 dígitos se normaliza con `549`; formatos ambiguos se rechazan. El usuario confirma el envío y técnicamente puede editar el texto; por eso el mensaje nunca funciona como comprobante de seguridad. Transferencia no se marca como pagada.
 
-`SiteContent` agrega `orderingEnabled`, `cashEnabled`, `transferEnabled` y `mercadoPagoEnabled`, editables por OWNER desde Contenido. Si pedidos está apagado, botones y carrito no se renderizan. Mercado Pago solo aparece si `orderingEnabled && mercadoPagoEnabled` y el servidor valida modo `TEST`, Access Token con prefijo TEST, Webhook Secret y `APP_BASE_URL` HTTPS pública. La Public Key no participa del redirect y no se carga un SDK frontend.
+`SiteContent` agrega `orderingEnabled`, `cashEnabled`, `transferEnabled` y `mercadoPagoEnabled`, editables por OWNER desde Contenido. Si pedidos está apagado, botones y carrito no se renderizan. Mercado Pago solo aparece si `orderingEnabled && mercadoPagoEnabled` y el servidor valida modo `TEST`, un Access Token privado con estructura válida, Webhook Secret y `APP_BASE_URL` HTTPS pública. El ambiente no se infiere por el prefijo del token: Mercado Pago también emite credenciales de prueba `APP_USR`. La Public Key no participa del redirect y no se carga un SDK frontend.
 
 ### Checkout Pro TEST
 
@@ -393,7 +393,7 @@ Copiar `.env.example` a `.env.local`; nunca versionar valores reales.
 | `SENTRY_DSN` | Privada | DSN usada por servidor y edge; configurada localmente sin documentar su valor. |
 | `NEXT_PUBLIC_SENTRY_DSN` | Pública | DSN de ingesta para capturar errores del navegador; no es un token de cuenta. |
 | `MERCADO_PAGO_MODE` | Privada/configuración | Debe ser exactamente `TEST`; cualquier otro valor oculta y bloquea la integración. |
-| `MERCADO_PAGO_ACCESS_TOKEN` | Privada | Token server-side; se exige prefijo TEST y nunca se devuelve ni se usa en cliente. |
+| `MERCADO_PAGO_ACCESS_TOKEN` | Privada | Token server-side de prueba; se valida presencia y longitud, sin inferir el ambiente por su prefijo, y nunca se devuelve ni se usa en cliente. |
 | `MERCADO_PAGO_WEBHOOK_SECRET` | Privada | Secret de firma obtenida al configurar Webhooks en la integración TEST. |
 | `APP_BASE_URL` | Privada/configuración | Origen HTTPS público exacto del Preview para back URLs, sin localhost, credenciales, query ni hash. |
 | `NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY` | Pública, no utilizada | Existe para el entorno TEST, pero Checkout Pro por `init_point` no la necesita. |

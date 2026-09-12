@@ -24,7 +24,7 @@ const cronEnvironmentSchema = z.object({
 });
 
 const mercadoPagoEnvironmentSchema = z.object({
-  MERCADO_PAGO_ACCESS_TOKEN: z.string().min(20).startsWith("TEST-"),
+  MERCADO_PAGO_ACCESS_TOKEN: z.string().refine((value) => value.trim().length >= 20),
   MERCADO_PAGO_WEBHOOK_SECRET: z.string().min(16),
   MERCADO_PAGO_MODE: z.literal("TEST"),
   APP_BASE_URL: z.url(),
