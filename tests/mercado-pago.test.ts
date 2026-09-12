@@ -534,3 +534,18 @@ test("rutas usan rate limit, idempotencia, no-store y no exponen Access Token", 
   assert.match(cart, /submittingRef\.current/);
   assert.match(cart, /window\.location\.assign\(body\.initPoint\)/);
 });
+
+test("retorno success propaga payment_id y actualizar vuelve a reconciliar en servidor", () => {
+  const successPage = readFileSync(path.resolve("app/checkout/mercado-pago/success/page.tsx"), "utf8");
+  const returnPage = readFileSync(path.resolve("app/checkout/mercado-pago/return-page.tsx"), "utf8");
+  const checkout = readFileSync(path.resolve("lib/mercado-pago/checkout.ts"), "utf8");
+  const refreshButton = readFileSync(path.resolve("components/public/order/checkout-refresh-button.tsx"), "utf8");
+
+  assert.match(successPage, /searchParams: Promise<\{ code\?: string; payment_id\?: string \}>/);
+  assert.match(returnPage, /const params = await searchParams/);
+  assert.match(returnPage, /params\.payment_id/);
+  assert.match(checkout, /reconcileMercadoPagoPayment\(paymentHint/);
+  assert.doesNotMatch(checkout, /reconcileMercadoPagoPayment\(paymentHint\)\.catch\(\(\) => undefined\)/);
+  assert.match(returnPage, /MP_RETURN_RECONCILE_FAILED/);
+  assert.match(refreshButton, /router\.refresh\(\)/);
+});

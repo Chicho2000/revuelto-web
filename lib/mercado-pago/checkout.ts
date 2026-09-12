@@ -178,6 +178,57 @@ export type MercadoPagoReconcileStageEvent = {
   error?: unknown;
 };
 
+export type MercadoPagoReturnStageEvent = {
+  stage:
+    | "MP_RETURN_CODE_INVALID"
+    | "MP_RETURN_CODE_OK"
+    | "MP_RETURN_PAYMENT_ID_MISSING_OR_INVALID"
+    | "MP_RETURN_PAYMENT_ID_PRESENT"
+    | "MP_RETURN_ORDER_LOOKUP_START"
+    | "MP_RETURN_ORDER_LOOKUP_FAILED"
+    | "MP_RETURN_ORDER_FOUND"
+    | "MP_RETURN_ORDER_NOT_FOUND"
+    | "MP_RETURN_PAYMENT_LOOKUP_START"
+    | "MP_RETURN_PAYMENT_LOOKUP_FAILED"
+    | "MP_RETURN_PAYMENT_LOOKUP_OK"
+    | "MP_RETURN_RECONCILE_ORDER_LOOKUP_START"
+    | "MP_RETURN_RECONCILE_ORDER_LOOKUP_FAILED"
+    | "MP_RETURN_RECONCILE_ORDER_LOOKUP_OK"
+    | "MP_RETURN_PAYMENT_OWNER_LOOKUP_START"
+    | "MP_RETURN_PAYMENT_OWNER_LOOKUP_FAILED"
+    | "MP_RETURN_PAYMENT_OWNER_LOOKUP_OK"
+    | "MP_RETURN_ORDER_UPDATE_START"
+    | "MP_RETURN_ORDER_UPDATE_FAILED"
+    | "MP_RETURN_ORDER_UPDATE_OK"
+    | "MP_RETURN_RECONCILE_START"
+    | "MP_RETURN_RECONCILE_FAILED"
+    | "MP_RETURN_RECONCILE_OK"
+    | "MP_RETURN_ORDER_RELOAD_START"
+    | "MP_RETURN_ORDER_RELOAD_FAILED"
+    | "MP_RETURN_ORDER_RELOAD_OK";
+  paymentId?: string;
+  error?: unknown;
+  failureKind?: "PROVIDER" | "REPOSITORY";
+};
+
+const returnReconcileStageMap: Record<
+  MercadoPagoReconcileStageEvent["stage"],
+  MercadoPagoReturnStageEvent["stage"]
+> = {
+  MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_START: "MP_RETURN_PAYMENT_LOOKUP_START",
+  MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_FAILED: "MP_RETURN_PAYMENT_LOOKUP_FAILED",
+  MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_OK: "MP_RETURN_PAYMENT_LOOKUP_OK",
+  MP_WEBHOOK_STAGE_ORDER_LOOKUP_START: "MP_RETURN_RECONCILE_ORDER_LOOKUP_START",
+  MP_WEBHOOK_STAGE_ORDER_LOOKUP_FAILED: "MP_RETURN_RECONCILE_ORDER_LOOKUP_FAILED",
+  MP_WEBHOOK_STAGE_ORDER_LOOKUP_OK: "MP_RETURN_RECONCILE_ORDER_LOOKUP_OK",
+  MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_START: "MP_RETURN_PAYMENT_OWNER_LOOKUP_START",
+  MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_FAILED: "MP_RETURN_PAYMENT_OWNER_LOOKUP_FAILED",
+  MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_OK: "MP_RETURN_PAYMENT_OWNER_LOOKUP_OK",
+  MP_WEBHOOK_STAGE_ORDER_UPDATE_START: "MP_RETURN_ORDER_UPDATE_START",
+  MP_WEBHOOK_STAGE_ORDER_UPDATE_FAILED: "MP_RETURN_ORDER_UPDATE_FAILED",
+  MP_WEBHOOK_STAGE_ORDER_UPDATE_OK: "MP_RETURN_ORDER_UPDATE_OK",
+};
+
 export async function reconcileMercadoPagoPaymentWithDependencies(
   paymentId: string,
   dependencies: ReconcilePaymentDependencies,
@@ -310,16 +361,70 @@ export function buildPublicCheckoutView(checkout: CheckoutOrder, now = new Date(
   };
 }
 
-export async function getPublicCheckoutView(publicCode: string, paymentHint?: string) {
-  if (!PUBLIC_CHECKOUT_CODE_PATTERN.test(publicCode)) return null;
-  const initialCheckout = await findCheckoutByPublicCode(publicCode);
-  if (!initialCheckout) return null;
+export async function getPublicCheckoutView(
+  publicCode: string,
+  paymentHint?: string,
+  onStage?: (event: MercadoPagoReturnStageEvent) => void,
+) {
+  if (!PUBLIC_CHECKOUT_CODE_PATTERN.test(publicCode)) {
+    onStage?.({ stage: "MP_RETURN_CODE_INVALID" });
+    return null;
+  }
+  onStage?.({ stage: "MP_RETURN_CODE_OK" });
+
+  onStage?.({ stage: "MP_RETURN_ORDER_LOOKUP_START" });
+  let initialCheckout: CheckoutOrder | null;
+  try {
+    initialCheckout = await findCheckoutByPublicCode(publicCode);
+  } catch (error) {
+    onStage?.({ stage: "MP_RETURN_ORDER_LOOKUP_FAILED", error });
+    throw error;
+  }
+  if (!initialCheckout) {
+    onStage?.({ stage: "MP_RETURN_ORDER_NOT_FOUND" });
+    return null;
+  }
+  onStage?.({ stage: "MP_RETURN_ORDER_FOUND" });
+
   if (paymentHint && /^\d{1,30}$/.test(paymentHint)) {
-    await reconcileMercadoPagoPayment(paymentHint).catch(() => undefined);
+    onStage?.({ stage: "MP_RETURN_PAYMENT_ID_PRESENT", paymentId: paymentHint });
+    onStage?.({ stage: "MP_RETURN_RECONCILE_START", paymentId: paymentHint });
+    let failureKind: MercadoPagoReturnStageEvent["failureKind"];
+    try {
+      await reconcileMercadoPagoPayment(paymentHint, {
+        onStage: ({ stage, error }) => {
+          const returnStage = returnReconcileStageMap[stage];
+          if (error !== undefined) {
+            failureKind = returnStage === "MP_RETURN_PAYMENT_LOOKUP_FAILED"
+              ? "PROVIDER"
+              : "REPOSITORY";
+          }
+          onStage?.({ stage: returnStage, paymentId: paymentHint, error });
+        },
+      });
+      onStage?.({ stage: "MP_RETURN_RECONCILE_OK", paymentId: paymentHint });
+    } catch (error) {
+      onStage?.({
+        stage: "MP_RETURN_RECONCILE_FAILED",
+        paymentId: paymentHint,
+        error,
+        failureKind,
+      });
+    }
+  } else {
+    onStage?.({ stage: "MP_RETURN_PAYMENT_ID_MISSING_OR_INVALID" });
   }
 
-  const checkout = await findCheckoutByPublicCode(publicCode);
+  onStage?.({ stage: "MP_RETURN_ORDER_RELOAD_START" });
+  let checkout: CheckoutOrder | null;
+  try {
+    checkout = await findCheckoutByPublicCode(publicCode);
+  } catch (error) {
+    onStage?.({ stage: "MP_RETURN_ORDER_RELOAD_FAILED", error });
+    throw error;
+  }
   if (!checkout) return null;
+  onStage?.({ stage: "MP_RETURN_ORDER_RELOAD_OK" });
   return buildPublicCheckoutView(checkout);
 }
 
