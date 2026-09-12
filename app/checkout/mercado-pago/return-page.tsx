@@ -19,6 +19,13 @@ type ReturnLogDetails = {
   reconcileOutcome?: string;
   checkoutState?: string;
   paymentStatus?: string | null;
+  externalReference?: string;
+  liveMode?: boolean;
+  currency?: string;
+  transactionAmount?: number;
+  expectedAmount?: number;
+  checkoutPublicCode?: string;
+  outcome?: string;
 };
 
 function safeLogValue(value: unknown) {
@@ -73,11 +80,21 @@ export async function MercadoPagoReturnPage({
     const paymentStatus = event.paymentStatus === null
       ? null
       : safeLogValue(event.paymentStatus);
+    const externalReference = safeLogValue(event.externalReference);
+    const currency = safeLogValue(event.currency);
+    const checkoutPublicCode = safeLogValue(event.checkoutPublicCode);
     const details: ReturnLogDetails = {
       ...(event.paymentId ? { paymentId: event.paymentId } : {}),
       ...(safeLogValue(event.reconcileOutcome) ? { reconcileOutcome: event.reconcileOutcome } : {}),
       ...(safeLogValue(event.checkoutState) ? { checkoutState: event.checkoutState } : {}),
       ...(paymentStatus !== undefined ? { paymentStatus } : {}),
+      ...(externalReference ? { externalReference } : {}),
+      ...(event.liveMode !== undefined ? { liveMode: event.liveMode } : {}),
+      ...(currency ? { currency } : {}),
+      ...(Number.isFinite(event.transactionAmount) ? { transactionAmount: event.transactionAmount } : {}),
+      ...(Number.isFinite(event.expectedAmount) ? { expectedAmount: event.expectedAmount } : {}),
+      ...(checkoutPublicCode ? { checkoutPublicCode } : {}),
+      ...(safeLogValue(event.outcome) ? { outcome: event.outcome } : {}),
       ...(event.error !== undefined ? sanitizedErrorDetails(event.error) : {}),
     };
     if (event.error !== undefined) {

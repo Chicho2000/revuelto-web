@@ -11,6 +11,7 @@ import {
   initiateMercadoPagoCheckoutWithDependencies,
   MercadoPagoCheckoutError,
   reconcileMercadoPagoPaymentWithDependencies,
+  type MercadoPagoReconcileStageEvent,
 } from "../lib/mercado-pago/checkout";
 import {
   buildCheckoutBackUrls,
@@ -376,6 +377,54 @@ test("instrumentación de reconciliación separa lookup del proveedor y reposito
     "MP_WEBHOOK_STAGE_ORDER_LOOKUP_START",
     "MP_WEBHOOK_STAGE_ORDER_LOOKUP_FAILED",
   ]);
+});
+
+test("cada retorno IGNORED informa su causa sin alterar la reconciliación", async () => {
+  async function runIgnored(
+    providerPayment: MercadoPagoPayment,
+    checkout: CheckoutOrder | null,
+    paymentOwner: CheckoutOrder | null = null,
+  ) {
+    const events: MercadoPagoReconcileStageEvent[] = [];
+    const result = await reconcileMercadoPagoPaymentWithDependencies(providerPayment.id, {
+      gateway: {
+        async createPreference() { throw new Error("unexpected preference"); },
+        async getPayment() { return providerPayment; },
+      },
+      findByPublicCode: async () => checkout,
+      findByPaymentId: async () => paymentOwner,
+      updatePayment: async () => assert.fail("ignored payment must not update an order"),
+      reportMismatch: () => assert.fail("ignored payment must not report an amount mismatch"),
+      reportUnknownStatus: () => undefined,
+      onStage: (event) => events.push(event),
+    });
+    assert.equal(result.outcome, "IGNORED");
+    return events;
+  }
+
+  const invalidReference = await runIgnored(payment({ externalReference: "invalid reference" }), null);
+  assert.equal(invalidReference.at(-1)?.stage, "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_FORMAT");
+
+  const missingOrder = await runIgnored(payment(), null);
+  assert.equal(missingOrder.at(-1)?.stage, "MP_RECONCILE_IGNORED_ORDER_NOT_FOUND");
+
+  const mismatchedOrder = checkoutRecord({ publicCode: "RVT-FFFFFFFFFFFFFFFFFFFFFFFF" });
+  const mismatchedReference = await runIgnored(payment(), mismatchedOrder);
+  assert.equal(mismatchedReference.at(-1)?.stage, "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_MISMATCH");
+
+  const livePayment = await runIgnored(payment({ liveMode: true }), checkoutRecord());
+  const liveModeEvent = livePayment.at(-1);
+  assert.equal(liveModeEvent?.stage, "MP_RECONCILE_IGNORED_LIVE_MODE");
+  assert.equal(liveModeEvent?.liveMode, true);
+  assert.equal(liveModeEvent?.externalReference, publicCode);
+  assert.equal(liveModeEvent?.transactionAmount, 21_500);
+  assert.equal(liveModeEvent?.expectedAmount, 21_500);
+  assert.equal(liveModeEvent?.currency, "ARS");
+  assert.equal(liveModeEvent?.outcome, "IGNORED");
+
+  const otherOwner = checkoutRecord({ id: "77777777-7777-4777-8777-777777777777" });
+  const alreadyOwned = await runIgnored(payment(), checkoutRecord(), otherOwner);
+  assert.equal(alreadyOwned.at(-1)?.stage, "MP_RECONCILE_IGNORED_ALREADY_OWNED");
 });
 
 test("reconciliación mock consulta el pago real, aprueba e ignora duplicados", async () => {
