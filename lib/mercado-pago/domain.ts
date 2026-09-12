@@ -136,6 +136,5 @@ export function validatePaymentForCheckout(
     externalReferenceMatches: payment.externalReference === checkout.publicCode,
     amountMatches: mercadoPagoAmountToCents(payment.transactionAmount) === checkout.totalCents,
     currencyMatches: payment.currencyId === "ARS",
-    testModeMatches: payment.liveMode === false,
   };
 }

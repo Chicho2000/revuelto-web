@@ -147,6 +147,7 @@ function safePaidAt(value: string | null) {
 }
 
 type ReconcilePaymentDependencies = {
+  environmentMode: "TEST" | "PRODUCTION";
   gateway: MercadoPagoGateway;
   findByPublicCode(publicCode: string): Promise<CheckoutOrder | null>;
   findByPaymentId(paymentId: string): Promise<CheckoutOrder | null>;
@@ -178,7 +179,6 @@ export type MercadoPagoReconcileStageEvent = {
     | "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_FORMAT"
     | "MP_RECONCILE_IGNORED_ORDER_NOT_FOUND"
     | "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_MISMATCH"
-    | "MP_RECONCILE_IGNORED_LIVE_MODE"
     | "MP_RECONCILE_IGNORED_ALREADY_OWNED";
   error?: unknown;
   paymentId?: string;
@@ -223,7 +223,6 @@ export type MercadoPagoReturnStageEvent = {
     | "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_FORMAT"
     | "MP_RECONCILE_IGNORED_ORDER_NOT_FOUND"
     | "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_MISMATCH"
-    | "MP_RECONCILE_IGNORED_LIVE_MODE"
     | "MP_RECONCILE_IGNORED_ALREADY_OWNED";
   paymentId?: string;
   error?: unknown;
@@ -265,7 +264,6 @@ const returnReconcileStageMap: Record<
   MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_FORMAT: "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_FORMAT",
   MP_RECONCILE_IGNORED_ORDER_NOT_FOUND: "MP_RECONCILE_IGNORED_ORDER_NOT_FOUND",
   MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_MISMATCH: "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_MISMATCH",
-  MP_RECONCILE_IGNORED_LIVE_MODE: "MP_RECONCILE_IGNORED_LIVE_MODE",
   MP_RECONCILE_IGNORED_ALREADY_OWNED: "MP_RECONCILE_IGNORED_ALREADY_OWNED",
 };
 
@@ -273,6 +271,9 @@ export async function reconcileMercadoPagoPaymentWithDependencies(
   paymentId: string,
   dependencies: ReconcilePaymentDependencies,
 ) {
+  if (dependencies.environmentMode !== "TEST") {
+    throw new MercadoPagoCheckoutError("NOT_CONFIGURED", 503);
+  }
   dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_LOOKUP_START" });
   let payment: MercadoPagoPayment;
   try {
@@ -330,21 +331,6 @@ export async function reconcileMercadoPagoPaymentWithDependencies(
     });
     return { outcome: "IGNORED" as const };
   }
-  if (!validation.testModeMatches) {
-    dependencies.onStage?.({
-      stage: "MP_RECONCILE_IGNORED_LIVE_MODE",
-      paymentId: payment.id,
-      externalReference: payment.externalReference,
-      liveMode: payment.liveMode,
-      currency: payment.currencyId,
-      transactionAmount: payment.transactionAmount,
-      expectedAmount: checkout.totalCents / 100,
-      checkoutPublicCode: checkout.publicCode,
-      outcome: "IGNORED",
-    });
-    return { outcome: "IGNORED" as const };
-  }
-
   dependencies.onStage?.({ stage: "MP_WEBHOOK_STAGE_PAYMENT_OWNER_LOOKUP_START" });
   let paymentOwner: CheckoutOrder | null;
   try {
@@ -413,6 +399,7 @@ export async function reconcileMercadoPagoPayment(
   const environment = getMercadoPagoEnvironment();
   if (!environment) throw new MercadoPagoCheckoutError("NOT_CONFIGURED", 503);
   return reconcileMercadoPagoPaymentWithDependencies(paymentId, {
+    environmentMode: environment.MERCADO_PAGO_MODE,
     gateway: options.gateway ?? createMercadoPagoGateway(environment.MERCADO_PAGO_ACCESS_TOKEN),
     findByPublicCode: findCheckoutByPublicCode,
     findByPaymentId: findCheckoutByPaymentId,

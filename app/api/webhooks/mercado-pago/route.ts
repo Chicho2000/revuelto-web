@@ -102,9 +102,6 @@ export async function POST(request: NextRequest) {
     paymentId: queryDataId,
   } satisfies WebhookLogDetails;
   logWebhookStage("MP_WEBHOOK_STAGE_BODY_OK", eventDetails);
-  if (notification.data.live_mode) {
-    return NextResponse.json({ received: true }, { status: 202 });
-  }
 
   let failedStage: MercadoPagoReconcileStageEvent["stage"] | null = null;
   try {

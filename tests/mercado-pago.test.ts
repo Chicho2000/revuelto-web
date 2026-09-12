@@ -286,19 +286,21 @@ test("publicCode tiene 96 bits aleatorios y no es secuencial", () => {
   assert.notEqual(first, second);
 });
 
-test("validación de pago exige referencia, monto, ARS y live_mode false", () => {
+test("validación de pago exige referencia, monto y ARS sin inferir el ambiente por live_mode", () => {
   const payment: MercadoPagoPayment = {
     id: "987", status: "approved", transactionAmount: 21500, currencyId: "ARS",
     externalReference: "RVT-00112233445566778899AABB", liveMode: false, dateApproved: null,
   };
   const checkout = { publicCode: payment.externalReference, totalCents: 2_150_000 };
   assert.deepEqual(validatePaymentForCheckout(payment, checkout), {
-    externalReferenceMatches: true, amountMatches: true, currencyMatches: true, testModeMatches: true,
+    externalReferenceMatches: true, amountMatches: true, currencyMatches: true,
   });
   assert.equal(validatePaymentForCheckout({ ...payment, transactionAmount: 1 }, checkout).amountMatches, false);
   assert.equal(validatePaymentForCheckout({ ...payment, currencyId: "USD" }, checkout).currencyMatches, false);
   assert.equal(validatePaymentForCheckout({ ...payment, externalReference: "RVT-FFFFFFFFFFFFFFFFFFFFFFFF" }, checkout).externalReferenceMatches, false);
-  assert.equal(validatePaymentForCheckout({ ...payment, liveMode: true }, checkout).testModeMatches, false);
+  assert.deepEqual(validatePaymentForCheckout({ ...payment, liveMode: true }, checkout), {
+    externalReferenceMatches: true, amountMatches: true, currencyMatches: true,
+  });
   assert.equal(mercadoPagoAmountToCents(21500), 2_150_000);
   assert.equal(mercadoPagoAmountToCents(1.001), null);
 });
@@ -336,6 +338,7 @@ test("instrumentación de reconciliación separa lookup del proveedor y reposito
   const successfulStages: string[] = [];
   const record = checkoutRecord();
   await reconcileMercadoPagoPaymentWithDependencies("987", {
+    environmentMode: "TEST",
     gateway: {
       async createPreference() { throw new Error("unexpected preference"); },
       async getPayment() { return payment({ status: "pending" }); },
@@ -360,6 +363,7 @@ test("instrumentación de reconciliación separa lookup del proveedor y reposito
 
   const repositoryStages: string[] = [];
   await assert.rejects(reconcileMercadoPagoPaymentWithDependencies("987", {
+    environmentMode: "TEST",
     gateway: {
       async createPreference() { throw new Error("unexpected preference"); },
       async getPayment() { return payment({ status: "pending" }); },
@@ -387,6 +391,7 @@ test("cada retorno IGNORED informa su causa sin alterar la reconciliación", asy
   ) {
     const events: MercadoPagoReconcileStageEvent[] = [];
     const result = await reconcileMercadoPagoPaymentWithDependencies(providerPayment.id, {
+      environmentMode: "TEST",
       gateway: {
         async createPreference() { throw new Error("unexpected preference"); },
         async getPayment() { return providerPayment; },
@@ -412,16 +417,6 @@ test("cada retorno IGNORED informa su causa sin alterar la reconciliación", asy
   const mismatchedReference = await runIgnored(payment(), mismatchedOrder);
   assert.equal(mismatchedReference.at(-1)?.stage, "MP_RECONCILE_IGNORED_EXTERNAL_REFERENCE_MISMATCH");
 
-  const livePayment = await runIgnored(payment({ liveMode: true }), checkoutRecord());
-  const liveModeEvent = livePayment.at(-1);
-  assert.equal(liveModeEvent?.stage, "MP_RECONCILE_IGNORED_LIVE_MODE");
-  assert.equal(liveModeEvent?.liveMode, true);
-  assert.equal(liveModeEvent?.externalReference, publicCode);
-  assert.equal(liveModeEvent?.transactionAmount, 21_500);
-  assert.equal(liveModeEvent?.expectedAmount, 21_500);
-  assert.equal(liveModeEvent?.currency, "ARS");
-  assert.equal(liveModeEvent?.outcome, "IGNORED");
-
   const otherOwner = checkoutRecord({ id: "77777777-7777-4777-8777-777777777777" });
   const alreadyOwned = await runIgnored(payment(), checkoutRecord(), otherOwner);
   assert.equal(alreadyOwned.at(-1)?.stage, "MP_RECONCILE_IGNORED_ALREADY_OWNED");
@@ -436,6 +431,7 @@ test("reconciliación mock consulta el pago real, aprueba e ignora duplicados", 
     async getPayment(id: string) { lookups += 1; assert.equal(id, "987"); return payment(); },
   };
   const dependencies = {
+    environmentMode: "TEST" as const,
     gateway,
     findByPublicCode: async () => record,
     findByPaymentId: async () => null,
@@ -459,16 +455,62 @@ test("reconciliación mock consulta el pago real, aprueba e ignora duplicados", 
   assert.equal(updates, 1);
 });
 
-test("reconciliación nunca aprueba referencia, monto, moneda o modo incorrectos", async () => {
+test("modo TEST reconcilia un pago válido con live_mode true usando el estado real", async () => {
+  let record = checkoutRecord();
+  const result = await reconcileMercadoPagoPaymentWithDependencies("987", {
+    environmentMode: "TEST",
+    gateway: {
+      async createPreference() { throw new Error("unexpected preference"); },
+      async getPayment() { return payment({ liveMode: true, status: "approved" }); },
+    },
+    findByPublicCode: async () => record,
+    findByPaymentId: async () => null,
+    updatePayment: async (_checkout, update) => {
+      record = checkoutRecord({
+        paymentStatus: update.paymentStatus,
+        mercadoPagoPaymentId: update.paymentId,
+        mercadoPagoStatus: update.mercadoPagoStatus,
+        paidAt: update.paidAt ?? null,
+      });
+      return record;
+    },
+    reportMismatch: () => assert.fail("unexpected mismatch"),
+    reportUnknownStatus: () => assert.fail("unexpected status"),
+  });
+
+  assert.equal(result.outcome, "UPDATED");
+  assert.equal(record.paymentStatus, "APPROVED");
+  assert.equal(record.mercadoPagoPaymentId, "987");
+  assert.equal(record.mercadoPagoStatus, "approved");
+});
+
+test("la reconciliación compartida rechaza un ambiente que no sea TEST antes de consultar el pago", async () => {
+  let paymentLookups = 0;
+  await assert.rejects(reconcileMercadoPagoPaymentWithDependencies("987", {
+    environmentMode: "PRODUCTION",
+    gateway: {
+      async createPreference() { throw new Error("unexpected preference"); },
+      async getPayment() { paymentLookups += 1; return payment(); },
+    },
+    findByPublicCode: async () => checkoutRecord(),
+    findByPaymentId: async () => null,
+    updatePayment: async () => assert.fail("production mode must not update"),
+    reportMismatch: () => assert.fail("production mode must not reconcile"),
+    reportUnknownStatus: () => assert.fail("production mode must not reconcile"),
+  }), (error) => error instanceof MercadoPagoCheckoutError && error.code === "NOT_CONFIGURED");
+  assert.equal(paymentLookups, 0);
+});
+
+test("reconciliación nunca aprueba referencia, monto o moneda incorrectos", async () => {
   for (const invalidPayment of [
     payment({ externalReference: "RVT-FFFFFFFFFFFFFFFFFFFFFFFF" }),
     payment({ transactionAmount: 1 }),
     payment({ currencyId: "USD" }),
-    payment({ liveMode: true }),
   ]) {
     let updates = 0;
     let mismatches = 0;
     const outcome = await reconcileMercadoPagoPaymentWithDependencies(invalidPayment.id, {
+      environmentMode: "TEST",
       gateway: {
         async createPreference() { throw new Error("unexpected preference"); },
         async getPayment() { return invalidPayment; },
@@ -485,10 +527,11 @@ test("reconciliación nunca aprueba referencia, monto, moneda o modo incorrectos
   }
 });
 
-test("reconciliación mapea pending/rejected/desconocido y no degrada APPROVED", async () => {
-  for (const [providerStatus, expected] of [["pending", "PENDING"], ["rejected", "REJECTED"], ["future_unknown", "PENDING"]] as const) {
+test("reconciliación mapea pending/rejected/cancelled/desconocido y no degrada APPROVED", async () => {
+  for (const [providerStatus, expected] of [["pending", "PENDING"], ["rejected", "REJECTED"], ["cancelled", "CANCELLED"], ["future_unknown", "PENDING"]] as const) {
     let updatedStatus = "";
     const result = await reconcileMercadoPagoPaymentWithDependencies("987", {
+      environmentMode: "TEST",
       gateway: {
         async createPreference() { throw new Error("unexpected preference"); },
         async getPayment() { return payment({ status: providerStatus }); },
@@ -504,6 +547,7 @@ test("reconciliación mapea pending/rejected/desconocido y no degrada APPROVED",
   }
   const approved = checkoutRecord({ paymentStatus: "APPROVED", mercadoPagoPaymentId: "987", mercadoPagoStatus: "approved" });
   const regression = await reconcileMercadoPagoPaymentWithDependencies("987", {
+    environmentMode: "TEST",
     gateway: {
       async createPreference() { throw new Error("unexpected preference"); },
       async getPayment() { return payment({ status: "pending" }); },
@@ -520,6 +564,7 @@ test("reconciliación mapea pending/rejected/desconocido y no degrada APPROVED",
 test("la consulta fallida del gateway no crea ni actualiza estados", async () => {
   let repositoryCalls = 0;
   await assert.rejects(reconcileMercadoPagoPaymentWithDependencies("404", {
+    environmentMode: "TEST",
     gateway: {
       async createPreference() { throw new Error("unexpected preference"); },
       async getPayment() { throw new Error("payment not found"); },
@@ -577,6 +622,7 @@ test("rutas usan rate limit, idempotencia, no-store y no exponen Access Token", 
   assert.doesNotMatch(createRoute, /MERCADO_PAGO_ACCESS_TOKEN/);
   assert.match(webhookRoute, /WebhookSignatureValidator\.validate/);
   assert.match(webhookRoute, /reconcileMercadoPagoPayment/);
+  assert.doesNotMatch(webhookRoute, /if \(notification\.data\.live_mode\)/);
   assert.match(webhookRoute, /MP_WEBHOOK_PAYMENT_NOT_FOUND/);
   assert.match(webhookRoute, /MP_WEBHOOK_PROVIDER_ERROR/);
   assert.match(webhookRoute, /MP_WEBHOOK_REPOSITORY_ERROR/);
