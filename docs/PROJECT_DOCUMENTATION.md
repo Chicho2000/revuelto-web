@@ -1,11 +1,13 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-09-10.
+Actualizada: 2026-09-12.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
 usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
-[`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md).
+[`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md). La cronología completa de la
+incidencia de Checkout Pro está en
+[`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md).
 
 ## Dedicación registrada
 
@@ -13,13 +15,15 @@ usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
 - Responsable que reporta la dedicación: Ciro Pregot.
 - Trabajo acumulado informado antes de iniciar la ETAPA 2: **6 horas y 30 minutos**.
 - Trabajo incorporado entre `dd71a77` y `40b93b1`: **aproximadamente 5 horas y 30 minutos**.
-- Commit base actual verificado: `9f5599d` (`Corrige apertura directa de WhatsApp en mobile`).
+- Commit actual verificado: `fedac2d` (`Estoy cansado jefe (Corrige reconciliacion de pagos test de Mercado Pago)`) en `integrate-rescue-design`.
 - Trabajo incorporado entre `6b5b0ab` y `9f5599d`: **aproximadamente 10 horas**; incluye la recuperación del diseño de laptop, ajustes visuales, carrito/pedidos y verificaciones.
-- Dedicación acumulada informada hasta esta actualización: **aproximadamente 22 horas**.
+- Trabajo técnico aproximado entre `a2b4ce8` y `fedac2d`: **5 horas** dedicadas a Checkout Pro TEST, webhook, credenciales, reconciliación, diagnóstico, corrección y validación.
+- Dedicación acumulada informada hasta esta actualización: **aproximadamente 27 horas**.
 
 Este registro refleja el tiempo informado por Ciro para el alcance construido
-hasta la fecha; las 5 horas y 30 minutos y las 10 horas corresponden a los
-tramos de commits indicados. No es una estimación automática ni incluye trabajo futuro.
+hasta la fecha; los tiempos por tramo son estimaciones declaradas y no una
+medición automática de Git. El detalle exacto de las 5 horas de Mercado Pago
+está en [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md#registro-de-trabajo).
 
 ## Objetivo y alcance actual
 
@@ -35,7 +39,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Login y autorización OWNER | Implementados. |
 | Rate limiting y Turnstile | Implementados. |
 | Sesión administrativa | Implementada: 30 min inactiva o 1 h absoluta. |
-| Modelo Prisma y RLS | Ocho migraciones aplicadas; la novena, aditiva para Checkout Pro, está creada y pendiente. |
+| Modelo Prisma y RLS | Nueve migraciones aplicadas; `npx prisma migrate status` confirmó el esquema actualizado el 2026-09-12. |
 | Storage y procesamiento de imágenes | Infraestructura implementada; buckets revisados y corregidos a 5 MB con JPEG/PNG/WebP. |
 | CRUD de bowls | Implementado con dos tamaños, estado, imágenes seguras y borrado definitivo confirmado por nombre. |
 | CRUD de sucursales y horarios | Implementado con siete días, estado, teléfono opcional y borrado definitivo confirmado por nombre. |
@@ -202,6 +206,14 @@ Mercado Pago documenta credenciales TEST automáticas para Checkout Pro, cuyo Ac
 
 Las páginas success, pending y failure no confían en `status`, `preference_id` ni otros query params de Mercado Pago. Buscan un código público `RVT-` con 96 bits aleatorios y, si Mercado Pago aporta un payment ID numérico, vuelven a consultar ese pago desde servidor antes de releer la fila. Solo un registro persistido `APPROVED` obtiene los tres enlaces de WhatsApp y el texto “Pago confirmado”, generados desde el snapshot. Un checkout abandonado conserva el carrito local y queda pendiente; uno vencido exige iniciar otro para usar precios actuales.
 
+La incidencia que llevó a esta política tuvo cuatro síntomas encadenados: un
+503 inicial por asumir prefijo `TEST-`, un 503 posterior del simulador al usar
+el Payment ID ficticio `123456`, un retorno que ocultaba fallos mediante un
+`catch` silencioso y, finalmente, una reconciliación `IGNORED` porque el pago
+TEST real devolvía `live_mode=true`. El diagnóstico, las hipótesis descartadas,
+los logs sanitizados, los commits y el resultado idempotente están documentados
+en [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md).
+
 ## Base de datos y migraciones
 
 ### Modelos
@@ -255,11 +267,11 @@ Cada alta o edición de galería se confirma solo con el botón Guardar de su pr
 | `20260804000200_add_site_content_and_gallery` | Aplicada | Amplía `SiteContent`, crea el singleton y `GalleryItem`, agrega el destino de imagen y habilita RLS. |
 | `20260819000100_add_merchandise` | Aplicada | Agrega `MERCHANDISE` al destino temporal, crea `MerchandiseItem`, su índice, check de precio positivo y RLS sin políticas. |
 | `20260822000100_add_public_ordering` | Aplicada | Agrega cuatro flags a `SiteContent` y crea `PublicOrderRateLimit` con RLS sin políticas. |
-| `20260910000100_add_mercado_pago_checkout` | Pendiente | Crea enums de método/estado, `CheckoutOrder`, checks de total/ARS, UNIQUE, índices, FK a Branch con `ON DELETE SET NULL` y RLS sin políticas. La relación es obligatoria al crear desde la aplicación, pero no bloquea el borrado posterior de una sucursal; el snapshot conserva sus datos históricos. |
+| `20260910000100_add_mercado_pago_checkout` | Aplicada | Crea enums de método/estado, `CheckoutOrder`, checks de total/ARS, UNIQUE, índices, FK a Branch con `ON DELETE SET NULL` y RLS sin políticas. La relación es obligatoria al crear desde la aplicación, pero no bloquea el borrado posterior de una sucursal; el snapshot conserva sus datos históricos. |
 
-El 2026-09-10 `npx prisma migrate status` encontró nueve migraciones y reportó
-solamente `20260910000100_add_mercado_pago_checkout` sin aplicar. No se ejecutó
-ningún comando de aplicación de migraciones.
+El 2026-09-12 `npx prisma migrate status` encontró nueve migraciones y reportó
+`Database schema is up to date!`. La consulta realizada durante esta
+actualización fue de solo lectura y no aplicó migraciones.
 Nunca modificar una migración aplicada. La migración 003 calcula
 `absoluteExpiresAt = createdAt + 1 hour` para las sesiones existentes antes de
 marcar la columna como obligatoria.
@@ -441,15 +453,16 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
    que use el nuevo esquema.
 4. Crear buckets y configurar Turnstile para hostnames de cada entorno.
 5. Mantener `CRON_SECRET` configurado fuera de Git. `vercel.json` fue validado y registra el cron diario en producción.
-6. Para el Preview de Mercado Pago, configurar solo credenciales TEST, Webhook Secret y `APP_BASE_URL`; revisar y aplicar manualmente la migración pendiente antes de habilitar el flag.
+6. Para el Preview de Mercado Pago, mantener solo credenciales TEST, Webhook Secret y `APP_BASE_URL` de Preview. El estado real de migraciones debe verificarse siempre con `npx prisma migrate status` antes de cualquier despliegue.
 7. En Mercado Pago seleccionar eventos de **Pagos** y apuntar a `https://<preview>/api/webhooks/mercado-pago`. Si Vercel Authentication protege el Preview, la llamada externa será bloqueada antes de Next.js. Mantener la protección y usar manualmente un Protection Bypass for Automation en la URL del webhook, o un deployment de prueba público temporal autorizado; nunca documentar el valor del bypass.
    Con bypass, la plantilla es `https://<preview>/api/webhooks/mercado-pago?x-vercel-protection-bypass=<SECRET_DE_AUTOMATION>`; Mercado Pago agregará sus parámetros de notificación. La secret de firma se copia desde **Tus integraciones → Webhooks → Configurar notificaciones** directamente a `MERCADO_PAGO_WEBHOOK_SECRET`, nunca al chat ni al repositorio.
 
 ## Próxima etapa
 
 - Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy, incluyendo la apertura directa `whatsapp://send` en mobile y WhatsApp Web en desktop.
-- Revisar/aplicar con autorización la migración Checkout Pro, completar variables TEST en Preview y configurar el webhook de pagos sin copiar credenciales a Production.
-- Probar manualmente con Seller y Buyer Test separados: aprobado, pendiente y rechazado, cada retorno, actualización por consulta, simulador de webhook, WhatsApp post-pago y abandono del checkout. Los tests automáticos usan mocks y no realizaron pagos ni llamadas reales.
+- Mantener las variables TEST de Preview separadas de Production y revisar webhook, `APP_BASE_URL` y Vercel Protection sin copiar credenciales ni bypasses.
+- Completar pruebas manuales con Seller y Buyer Test separados para pendiente, rechazado/cancelado, webhook real, responsive, WhatsApp post-pago y abandono del checkout. El caso aprobado, `Payment.get()`, persistencia `APPROVED` y reconciliación idempotente ya fueron verificados con un pago TEST real; los tests automáticos usan mocks.
+- Antes de producción seguir la lista de [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md#paso-a-producción); la implementación actual bloquea todo modo distinto de `TEST`.
 - Resolver en una tarea separada los 8 advisories actuales de `npm audit` (1 crítico, 7 altos) en Next.js, Sharp y dependencias transitivas de Prisma/validación. `mercadopago@3.6.1` no aparece en esas cadenas; no usar `npm audit fix --force` sin revisar el downgrade rompiente de Prisma que propone.
 - Continuar monitoreando las ejecuciones del cron de limpieza en Vercel.
 
@@ -459,6 +472,9 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
 - `PROJECT_CONTEXT.md`: memoria técnica concisa que se lee antes de tareas
   importantes y se actualiza al cambiar arquitectura, seguridad, datos,
   variables, rutas o flujos.
+- `MERCADO_PAGO_DEBUGGING.md`: historial de la incidencia de Checkout Pro,
+  política de reconciliación, logging, pruebas y pasos pendientes antes de
+  producción.
 - Este documento: guía amplia para onboarding, operación y diagnóstico.
 
 Si el código y esta documentación difieren, verificar primero el código y la

@@ -2,11 +2,13 @@
 
 Actualizado: 2026-09-12. Este documento contiene estado comprobado y decisiones; `AGENTS.md` conserva las reglas obligatorias.
 
-Commit base actual verificado: `9f5599d` (`Corrige apertura directa de WhatsApp en mobile`). Incluye la recuperación visual, los ajustes de diseño, el sistema de pedidos públicos y las correcciones mobile previas a este trabajo sin commit.
+Commit actual verificado: `fedac2d` (`Estoy cansado jefe (Corrige reconciliacion de pagos test de Mercado Pago)`) en `integrate-rescue-design`, coincidente con `origin/integrate-rescue-design` al iniciar esta actualización documental.
 
 Tiempo de trabajo declarado para el tramo entre `6b5b0ab` y `9f5599d`: aproximadamente **10 horas**, incluyendo recuperación del diseño de laptop, ajustes visuales, carrito/pedidos, pruebas y verificaciones.
 
-Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md).
+Tiempo aproximado dedicado a la implementación y resolución de la incidencia de Checkout Pro TEST entre `a2b4ce8` y `fedac2d`: **5 horas**. Es una estimación técnica declarada, no una medición automática de Git.
+
+Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md). Diagnóstico completo de Checkout Pro: [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md).
 
 ## Cambios desde el último push
 
@@ -24,7 +26,7 @@ Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.m
 - Funciona la página pública `/`, cuyo menú y secciones de carta, promociones, sucursales, galería y merchandising aparecen solo cuando tienen contenido público válido. Cuando `orderingEnabled` está activo, bowls y merchandising se agregan al carrito local y se elige una sucursal con WhatsApp válido. Efectivo y transferencia preparan WhatsApp; Mercado Pago aparece únicamente cuando su flag y toda la configuración técnica TEST son válidos. También funcionan el login `/admin/login` y el panel protegido `/admin`; `/admin/content` permite configurar pedidos y medios de pago.
 - Integraciones activas: Prisma en servidor, Supabase Auth, protección de rutas, rate limiting persistente, Turnstile obligatorio e infraestructura de imágenes de staging. No hay datos mock como fallback.
 - Rutas de infraestructura: login/logout/actividad, intención-completado-descarte de imágenes y handlers protegidos bajo `/admin/bowls/manage`, `/admin/branches/manage`, `/admin/promotions/manage` y `/admin/merchandise/manage`. Promociones y merchandising admiten crear, editar y cambiar estado; no admiten borrado.
-- `npx prisma migrate status` del 2026-09-10 encontró nueve migraciones: las ocho anteriores están aplicadas y `20260910000100_add_mercado_pago_checkout` está pendiente. La consulta fue de solo lectura; no se aplicó ninguna migración.
+- `npx prisma migrate status` del 2026-09-12 encontró nueve migraciones y confirmó `Database schema is up to date!`. La consulta fue de solo lectura; en esta sesión no se aplicó ninguna migración.
 - Los buckets fueron corregidos y revisados manualmente: `revuelto-temp` es privado y `bucket-media` es público para lectura; ambos limitan archivos a 5 MB y aceptan JPEG, PNG y WebP. La aplicación conserva el formato original validado y no convierte automáticamente a WebP. La aplicación no crea ni reconfigura buckets.
 - Sentry está configurado en `.env.local`, sanitizado y funcionando. La ruta temporal `/api/dev/test-sentry` usada para comprobar la integración fue eliminada.
 - `CRON_SECRET` está configurado. La auditoría del cron quedó completada: el endpoint devuelve 401 sin secreto o con uno incorrecto, `vercel.json` fue validado y al auditar había 0 registros `TemporaryImage` candidatos a limpieza.
@@ -93,7 +95,7 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 | 2026-08-19 | Merchandising como catálogo simple | Se reutilizan Zod, React Hook Form, autorización OWNER y el workflow de imágenes compensado; no se agrega slug porque no existen páginas individuales ni URLs por producto. La web lo oculta por completo si no hay productos activos. | `lib/merchandise/*`, `app/admin/**/merchandise/*`, `app/page.tsx` |
 | 2026-08-22–2026-08-27 | Recuperación visual y pedidos web | Tramo de trabajo estimado en 10 horas: recuperación y ajustes del diseño público, carrito local, checkout por sucursal, recálculo servidor, WhatsApp y pruebas. Efectivo y transferencia están implementados. Mercado Pago es configurable pero permanece técnicamente deshabilitado hasta una etapa con credenciales, Checkout Pro, webhook e idempotencia. | `app/page.tsx`, `app/public.css`, `lib/orders/*`, `components/public/order/*`, `app/api/orders/prepare/route.ts` |
 | 2026-09-10 | Checkout Pro TEST con verificación server-side | Se agregó una operación técnica mínima, snapshot inmutable, dinero en centavos, idempotencia de creación, preference expirable, webhook firmado y reconciliación contra la API de pagos. La confirmación y el WhatsApp pago dependen exclusivamente del estado persistido `APPROVED`; la migración y la configuración externa quedan manuales. | `lib/mercado-pago/*`, `app/api/{orders,webhooks}/**`, `app/checkout/mercado-pago/**`, `prisma/schema.prisma` |
-| 2026-09-12 | Ambiente TEST explícito sin bloqueo rígido por `live_mode` | Las credenciales TEST actuales y productivas comparten `APP_USR`, y un pago real del flujo TEST devolvió `live_mode=true`. Se mantiene `MERCADO_PAGO_MODE=TEST`, la credencial TEST configurada manualmente, consulta API, orden local, referencia, monto, ARS, propiedad del Payment ID e idempotencia; `live_mode` queda solo diagnóstico. Retorno y webhook comparten la misma reconciliación. | `lib/env.ts`, `lib/mercado-pago/*`, `app/api/webhooks/mercado-pago/route.ts` |
+| 2026-09-12 | Ambiente TEST explícito sin bloqueo rígido por `live_mode` | Las credenciales TEST actuales y productivas comparten `APP_USR`, y un pago real del flujo TEST devolvió `live_mode=true`. Se mantiene `MERCADO_PAGO_MODE=TEST`, la credencial TEST configurada manualmente, consulta API, orden local, referencia, monto, ARS, propiedad del Payment ID e idempotencia; `live_mode` queda solo diagnóstico. Retorno y webhook comparten la misma reconciliación. La investigación completa y sus siete commits están en [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md). | `lib/env.ts`, `lib/mercado-pago/*`, `app/api/webhooks/mercado-pago/route.ts` |
 | 2026-08-01 | No gestionar Auth users | Protege las cuentas creadas manualmente y separa identidad/autorización. | `lib/auth.ts` |
 
 ## Base de datos
@@ -116,7 +118,7 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 1. Crear las variables anteriores sin versionar valores; generar `SECURITY_HMAC_SECRET` aleatorio de 32+ caracteres.
 2. Mantener `revuelto-temp` privado y `bucket-media` público. Revisar y ejecutar manualmente [`STORAGE_SECURITY.sql`](./STORAGE_SECURITY.sql): niega acceso directo a ambos buckets para `anon`/`authenticated`; la lectura pública queda solo por la URL pública de finales.
 3. En Cloudflare Turnstile crear el widget, permitir hostnames local/producción, usar action `admin-login` y configurar las tres variables de Turnstile. La Secret Key no sale del servidor.
-4. Antes de cualquier cambio futuro de esquema, ejecutar `npx prisma migrate status` y tomar su resultado como fuente de verdad. Al 2026-09-10 se encontraron nueve migraciones y solo `20260910000100_add_mercado_pago_checkout` está pendiente. No ejecutar `migrate deploy`, `migrate dev`, `db push` ni reset sin autorización explícita.
+4. Antes de cualquier cambio futuro de esquema, ejecutar `npx prisma migrate status` y tomar su resultado como fuente de verdad. Al 2026-09-12 se encontraron nueve migraciones y la base informó `Database schema is up to date!`. No ejecutar `migrate deploy`, `migrate dev`, `db push` ni reset sin autorización explícita.
 5. Mantener `CRON_SECRET` fuera de Git. El cron diario está declarado y validado en `vercel.json`; su endpoint rechaza solicitudes sin secreto o con secreto incorrecto.
 6. Probar manualmente el CRUD de bowls: alta con dos precios, slug duplicado, edición, estado, selección, arrastre, cambio y cancelación de imagen, y límites 5 MB/6000×6000/24 MP. Para borrar, cancelar primero, luego intentar con un nombre distinto y finalmente escribir exactamente el nombre; verificar que sus tamaños desaparezcan.
 7. Probar el CRUD de sucursales: alta/edición, siete días, abiertos/cerrados, validación de horas, teléfono opcional, activación/desactivación y visibilidad pública. Para borrar, repetir la confirmación exacta y verificar que sus horarios desaparezcan. Mantener además las pruebas manuales de login y sesión. Nunca cambiar ni probar automáticamente contraseñas reales.
@@ -125,7 +127,7 @@ La URL firmada se limita al objeto generado por servidor. Su duración efectiva 
 
 Pruebas de pedidos realizadas el 2026-08-22 cubren carrito, límites, estado inválido de localStorage, Zod estricto, productos/sucursales/métodos no disponibles, recálculo de precios, efectivo, transferencia y WhatsApp. La validación final completa debe conservar además las pruebas existentes. No se usaron contraseñas ni se modificaron cuentas.
 
-Las pruebas automatizadas de Mercado Pago usan un gateway simulado y cubren catálogo, snapshot, preference, idempotencia, configuración TEST-only, firmas, eventos, reconciliación de estados/montos/moneda/referencia, propiedad del Payment ID, `live_mode=true` en TEST, expiración y WhatsApp aprobado. Además se completó una prueba manual real contra Checkout Pro TEST; los tests automáticos siguen sin llamar al proveedor.
+Las pruebas automatizadas de Mercado Pago usan un gateway simulado y cubren catálogo, snapshot, preference, idempotencia, configuración TEST-only, firmas, eventos, reconciliación de estados/montos/moneda/referencia, propiedad del Payment ID, `live_mode=true` en TEST, expiración y WhatsApp aprobado. Además se completó una prueba manual real contra Checkout Pro TEST: el pago quedó `APPROVED` y una segunda reconciliación devolvió `ALREADY_PROCESSED`, confirmando idempotencia. Los tests automáticos siguen sin llamar al proveedor.
 
 Verificación HTTP local sobre el build de producción: sin cookies, `/admin/bowls` redirige 307 al login y los handlers de bowls (alta/edición/estado), promociones, sucursales, contenido, galería e imágenes responden 401. El cron sin Bearer también responde 401. No se invocó el cron con secreto ni se ejecutó ninguna mutación real.
 
@@ -149,7 +151,7 @@ Verificación local adicional del 2026-08-04: `GET http://localhost:3000/` respo
 ## Pendientes
 
 - Probar manualmente dashboard, CRUD de merchandising, navegación condicional, grilla 3/2/1, título crema y el intercambio de ilustraciones.
-- Revisar y, solo con autorización explícita, aplicar `20260910000100_add_mercado_pago_checkout` antes de habilitar Checkout Pro.
-- Completar en Preview `MERCADO_PAGO_MODE=TEST`, Access Token TEST, Webhook Secret y `APP_BASE_URL`; configurar el webhook de pagos y resolver Vercel Deployment Protection sin desactivar toda la protección. No copiar credenciales TEST a Production.
+- Mantener separadas las credenciales TEST de Preview y cualquier futura credencial productiva; nunca inferir el ambiente por el prefijo `APP_USR`.
+- Revisar la configuración del webhook y Vercel Deployment Protection antes de cada Preview; no documentar ni copiar secrets o bypasses.
 - Completar las pruebas manuales restantes de Checkout Pro con Seller/Buyer Test separados: pendiente, rechazado, webhook y responsive 320/375/430. El pago aprobado y la consulta real por Payment ID ya fueron verificados.
 - Resolver por separado los 8 advisories informados por `npm audit` (1 crítico, 7 altos) en Next.js, Sharp y dependencias transitivas; el SDK `mercadopago` no aparece en las cadenas reportadas. No ejecutar el fix forzado que propone un cambio rompiente de Prisma sin revisión específica.
