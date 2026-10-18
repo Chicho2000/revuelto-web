@@ -1,11 +1,13 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-09-12.
+Actualizada: 2026-10-18.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
 usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
-[`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md). La cronología completa de la
+[`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md). El handoff autocontenido para
+continuar desde otra computadora está en
+[`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md). La cronología completa de la
 incidencia de Checkout Pro está en
 [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md).
 
@@ -15,7 +17,7 @@ incidencia de Checkout Pro está en
 - Responsable que reporta la dedicación: Ciro Pregot.
 - Trabajo acumulado informado antes de iniciar la ETAPA 2: **6 horas y 30 minutos**.
 - Trabajo incorporado entre `dd71a77` y `40b93b1`: **aproximadamente 5 horas y 30 minutos**.
-- Commit actual verificado: `fedac2d` (`Estoy cansado jefe (Corrige reconciliacion de pagos test de Mercado Pago)`) en `integrate-rescue-design`.
+- Commit actual verificado antes de esta actualización documental: `7696f9e` (`Documentacion de integracion y debugging de Mercado Pago`) en `integrate-rescue-design`.
 - Trabajo incorporado entre `6b5b0ab` y `9f5599d`: **aproximadamente 10 horas**; incluye la recuperación del diseño de laptop, ajustes visuales, carrito/pedidos y verificaciones.
 - Trabajo técnico aproximado entre `a2b4ce8` y `fedac2d`: **5 horas** dedicadas a Checkout Pro TEST, webhook, credenciales, reconciliación, diagnóstico, corrección y validación.
 - Dedicación acumulada informada hasta esta actualización: **aproximadamente 27 horas**.
@@ -39,7 +41,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Login y autorización OWNER | Implementados. |
 | Rate limiting y Turnstile | Implementados. |
 | Sesión administrativa | Implementada: 30 min inactiva o 1 h absoluta. |
-| Modelo Prisma y RLS | Nueve migraciones aplicadas; `npx prisma migrate status` confirmó el esquema actualizado el 2026-09-12. |
+| Modelo Prisma y RLS | Nueve migraciones aplicadas; `npx prisma migrate status` confirmó el esquema actualizado el 2026-10-18. |
 | Storage y procesamiento de imágenes | Infraestructura implementada; buckets revisados y corregidos a 5 MB con JPEG/PNG/WebP. |
 | CRUD de bowls | Implementado con dos tamaños, estado, imágenes seguras y borrado definitivo confirmado por nombre. |
 | CRUD de sucursales y horarios | Implementado con siete días, estado, teléfono opcional y borrado definitivo confirmado por nombre. |
@@ -48,7 +50,15 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Galería multimedia | Implementada con fotos y miniaturas enlazadas a Instagram; sin video alojado ni embeds. |
 | Merchandising | Catálogo administrable integrado al carrito; sin stock, variantes ni checkout individual. |
 | Pedidos web | Carrito local de bowls/merchandising, recálculo servidor, sucursal, efectivo/transferencia y apertura de WhatsApp implementados. No es un sistema interno de pedidos. |
-| Mercado Pago | Checkout Pro TEST implementado con preference, webhook firmado y verificación server-side. Un pago aprobado real ya confirmó `Payment.get()` y evidenció que `live_mode` no identifica rígidamente las credenciales TEST modernas. |
+| Mercado Pago | Checkout Pro TEST implementado con preference, webhook firmado y verificación server-side. Un pago aprobado real ya confirmó `Payment.get()` y evidenció que `live_mode` no identifica rígidamente las credenciales TEST modernas. Queda deliberadamente pausado hasta recibir la cuenta definitiva o nueva del negocio. |
+
+La siguiente etapa prevista no es Mercado Pago sino el análisis técnico de una
+nueva carta con seis bowls fijos, un bowl personalizable y un único tamaño. El
+modelo actual exige `SMALL` y `LARGE` a través de Prisma, administración, web
+pública, carrito, pedidos y snapshots de pago. Antes de implementarla se deben
+comparar opciones de dominio y migración; no debe resolverse ocultando tamaños
+solo en la interfaz. El detalle funcional y las preguntas abiertas están en
+[`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md#12-próximo-producto-nueva-carta).
 
 ## Tecnologías
 
@@ -269,7 +279,7 @@ Cada alta o edición de galería se confirma solo con el botón Guardar de su pr
 | `20260822000100_add_public_ordering` | Aplicada | Agrega cuatro flags a `SiteContent` y crea `PublicOrderRateLimit` con RLS sin políticas. |
 | `20260910000100_add_mercado_pago_checkout` | Aplicada | Crea enums de método/estado, `CheckoutOrder`, checks de total/ARS, UNIQUE, índices, FK a Branch con `ON DELETE SET NULL` y RLS sin políticas. La relación es obligatoria al crear desde la aplicación, pero no bloquea el borrado posterior de una sucursal; el snapshot conserva sus datos históricos. |
 
-El 2026-09-12 `npx prisma migrate status` encontró nueve migraciones y reportó
+El 2026-10-18 `npx prisma migrate status` encontró nueve migraciones y reportó
 `Database schema is up to date!`. La consulta realizada durante esta
 actualización fue de solo lectura y no aplicó migraciones.
 Nunca modificar una migración aplicada. La migración 003 calcula
@@ -459,9 +469,9 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
 
 ## Próxima etapa
 
-- Probar manualmente el carrito y checkout en 320, 375, 430 px, tablet y desktop antes del deploy, incluyendo la apertura directa `whatsapp://send` en mobile y WhatsApp Web en desktop.
-- Mantener las variables TEST de Preview separadas de Production y revisar webhook, `APP_BASE_URL` y Vercel Protection sin copiar credenciales ni bypasses.
-- Completar pruebas manuales con Seller y Buyer Test separados para pendiente, rechazado/cancelado, webhook real, responsive, WhatsApp post-pago y abandono del checkout. El caso aprobado, `Payment.get()`, persistencia `APPROVED` y reconciliación idempotente ya fueron verificados con un pago TEST real; los tests automáticos usan mocks.
+- Analizar antes de implementar la nueva carta: seis bowls fijos, un bowl personalizable y un único tamaño. Presentar alternativas de modelo y migración con impacto en admin, público, carrito, WhatsApp, `CheckoutOrder` y tests. No limitar el cambio a ocultar `SMALL`/`LARGE`.
+- Mantener Mercado Pago deliberadamente pausado hasta que el negocio reciba su cuenta definitiva o nueva. No configurar credenciales ni continuar pruebas por iniciativa propia.
+- Cuando el usuario autorice retomarlo, mantener TEST de Preview separado de Production y revisar webhook, `APP_BASE_URL` y Vercel Protection sin copiar credenciales ni bypasses. Completar entonces la matriz de [`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md#11-mercado-pago-pausa-y-pendientes). El caso aprobado, `Payment.get()`, persistencia `APPROVED` y reconciliación idempotente ya fueron verificados con un pago TEST real.
 - Antes de producción seguir la lista de [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md#paso-a-producción); la implementación actual bloquea todo modo distinto de `TEST`.
 - Resolver en una tarea separada los 8 advisories actuales de `npm audit` (1 crítico, 7 altos) en Next.js, Sharp y dependencias transitivas de Prisma/validación. `mercadopago@3.6.1` no aparece en esas cadenas; no usar `npm audit fix --force` sin revisar el downgrade rompiente de Prisma que propone.
 - Continuar monitoreando las ejecuciones del cron de limpieza en Vercel.
@@ -475,6 +485,8 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
 - `MERCADO_PAGO_DEBUGGING.md`: historial de la incidencia de Checkout Pro,
   política de reconciliación, logging, pruebas y pasos pendientes antes de
   producción.
+- `CODEX_HANDOFF.md`: traspaso autocontenido para otra computadora o agente,
+  con checklist, pausas, próximo producto y prompt de continuidad.
 - Este documento: guía amplia para onboarding, operación y diagnóstico.
 
 Si el código y esta documentación difieren, verificar primero el código y la
