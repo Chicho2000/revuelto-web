@@ -111,7 +111,7 @@ button, input, textarea, select { font: inherit; }
 .admin-dashboard-card h2 { font-size: 1.65rem; }
 .admin-dashboard-card span { font-weight: 800; }
 
-.bowls-admin-page, .branches-admin-page, .promotions-admin-page, .gallery-admin-page, .admin-gallery-panel, .merchandise-admin-page, .admin-merchandise-panel { max-width: 64rem; }
+.bowls-admin-page, .revueltos-admin-page, .branches-admin-page, .promotions-admin-page, .gallery-admin-page, .admin-gallery-panel, .merchandise-admin-page, .admin-merchandise-panel, .admin-revuelto-panel { max-width: 64rem; }
 .admin-panel-heading, .admin-bowl-title-row, .admin-bowl-actions, .admin-form-actions, .slug-control { display: flex; align-items: center; gap: .75rem; }
 .admin-panel-heading, .admin-bowl-title-row { justify-content: space-between; }
 .admin-primary-link, .admin-bowl-actions a, .admin-bowl-actions button, .admin-form-actions button, .slug-control button, .admin-file-button { border: 2px solid var(--revuelto-black); border-radius: 999px; padding: .65rem 1rem; background: var(--revuelto-yellow); color: var(--revuelto-black); font-weight: 800; text-decoration: none; cursor: pointer; }
@@ -215,6 +215,16 @@ button, input, textarea, select { font: inherit; }
 .admin-merchandise-card { display: grid; gap: 1rem; border-top: 2px solid var(--revuelto-black); padding-top: 1rem; }
 .admin-merchandise-thumb { display: grid; min-height: 10rem; place-items: center; overflow: hidden; border: 2px solid var(--revuelto-black); border-radius: 1rem; background: var(--revuelto-orange); }
 .admin-merchandise-thumb img { width: 100%; height: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.admin-recipe-fieldset { display: grid; gap: 1rem; border: 2px solid var(--revuelto-black); border-radius: 1rem; padding: 1rem; }
+.admin-recipe-fieldset legend { padding: 0 .5rem; font-weight: 800; }
+.admin-recipe-fieldset > p, .admin-choice-options > p { margin: 0; }
+.admin-ingredient-picker, .admin-choice-groups { display: grid; gap: 1rem; }
+.admin-ingredient-category, .admin-choice-group { display: grid; gap: .6rem; padding: 1rem; border-radius: .8rem; background: var(--revuelto-cream); }
+.admin-ingredient-category h2, .admin-choice-group h2 { margin: 0; font-size: 1.1rem; }
+.admin-recipe-ingredient { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.admin-recipe-ingredient.is-inactive { opacity: .65; }
+.admin-removable-toggle { font-size: .9rem; }
+.admin-choice-options { display: grid; gap: .6rem; padding: 1rem; border-radius: .8rem; background: var(--revuelto-blue); }
 
 @media (min-width: 720px) {
   .hero-section { grid-template-columns: 1.1fr .9fr; align-items: center; padding: 5rem 2.5rem; }

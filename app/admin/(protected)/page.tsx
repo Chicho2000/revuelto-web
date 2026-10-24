@@ -3,7 +3,8 @@ import { requireOwner } from "@/lib/auth";
 import Link from "next/link";
 
 const adminSections = [
-  { href: "/admin/bowls", title: "Carta", description: "Administrá bowls, precios e imágenes." },
+  { href: "/admin/revueltos", title: "Revueltos", description: "Configurá recetas, ingredientes, precio y visibilidad de la nueva carta." },
+  { href: "/admin/ingredients", title: "Ingredientes", description: "Administrá el catálogo global que usan todos los Revueltos." },
   { href: "/admin/promotions", title: "Promociones", description: "Creá, programá y activá promociones." },
   { href: "/admin/branches", title: "Sucursales", description: "Administrá locales y horarios." },
   { href: "/admin/content", title: "Contenido", description: "Editá textos, redes, SEO y galería." },

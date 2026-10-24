@@ -154,6 +154,7 @@ model Bowl {
   imagePath        String?
   isFeatured       Boolean    @default(false)
   isAvailable      Boolean    @default(true)
+  isVisibleInNewMenu Boolean  @default(false)
   isArchived       Boolean    @default(false)
   displayOrder     Int        @default(0)
   createdAt        DateTime   @default(now())
