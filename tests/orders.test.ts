@@ -113,11 +113,12 @@ test("la vista previa conserva hasta tres líneas y resume las restantes", () =>
   assert.equal(preview.remainingLines, 1);
 });
 
-test("la barra abre el mismo drawer y recibe las imágenes del catálogo", () => {
+test("la barra abre el mismo drawer y durante la transición recibe solo merchandising", () => {
   const providerSource = readFileSync(path.resolve("components/public/order/cart-provider.tsx"), "utf8");
   const pageSource = readFileSync(path.resolve("app/page.tsx"), "utf8");
   assert.match(providerSource, /onOpen=\{\(opener\) => context\.open\(opener\)\}/);
-  assert.match(pageSource, /imageUrl: bowl\.imageUrl/);
+  assert.match(pageSource, /RevueltoCard/);
+  assert.doesNotMatch(pageSource, /imageUrl: bowl\.imageUrl/);
   assert.match(pageSource, /imageUrl: item\.imageUrl/);
 });
 

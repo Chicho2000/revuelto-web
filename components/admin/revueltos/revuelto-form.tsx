@@ -313,7 +313,7 @@ export function RevueltoForm({
         <input type="checkbox" {...register("isVisibleInNewMenu")} />
         Visible en la nueva carta
       </label>
-      <p className="admin-field-help">Hasta que terminemos la carta pública nueva, esta visibilidad no cambia el menú actual de 25/35 oz.</p>
+      <p className="admin-field-help">Esta visibilidad controla exclusivamente la carta pública nueva de Revueltos.</p>
       {formMessage && <p className="form-message" role="status">{formMessage}</p>}
       <div className="admin-form-actions">
         <button type="submit" disabled={disabled}>{isSubmitting ? "Guardando…" : "Guardar Revuelto"}</button>

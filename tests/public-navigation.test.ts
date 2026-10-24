@@ -6,14 +6,11 @@ import {
   selectVisiblePublicContent,
 } from "../lib/public-visibility";
 
-const activeBowl = {
-  id: "bowl-1",
+const activeRevuelto = {
+  id: "revuelto-1",
   name: "Revuelto verde",
-  shortDescription: "Huevos y vegetales.",
-  imageUrl: null,
-  isAvailable: true,
+  isVisibleInNewMenu: true,
   isArchived: false,
-  sizes: [],
 };
 
 const activeBranch = {
@@ -44,7 +41,7 @@ const currentPromotion: TestPromotion = {
 };
 
 type PublicSource = {
-  bowls?: Array<typeof activeBowl>;
+  revueltos?: Array<typeof activeRevuelto>;
   branches?: Array<typeof activeBranch>;
   promotions?: TestPromotion[];
   gallery?: Array<{
@@ -64,7 +61,7 @@ type PublicSource = {
 function renderedState(source: PublicSource = {}) {
   const visibleContent = selectVisiblePublicContent(
     {
-      bowls: source.bowls ?? [],
+      revueltos: source.revueltos ?? [],
       branches: source.branches ?? [],
       promotions: source.promotions ?? [],
       gallery: source.gallery ?? [],
@@ -79,7 +76,7 @@ function renderedState(source: PublicSource = {}) {
 }
 
 test("sin promociones vigentes no existe enlace ni sección de promociones", () => {
-  const state = renderedState({ bowls: [activeBowl] });
+  const state = renderedState({ revueltos: [activeRevuelto] });
   assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.promotions}`), false);
   assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.promotions), false);
 });
@@ -107,21 +104,21 @@ test("promociones activas con horario habilitan la sección; las inactivas no", 
   assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.promotions), true);
 });
 
-test("sin bowls activos no existe enlace ni sección de carta", () => {
+test("sin Revueltos visibles no existe enlace ni sección de carta", () => {
   const state = renderedState({
-    bowls: [
-      { ...activeBowl, id: "inactive", isAvailable: false },
-      { ...activeBowl, id: "archived", isArchived: true },
+    revueltos: [
+      { ...activeRevuelto, id: "hidden", isVisibleInNewMenu: false },
+      { ...activeRevuelto, id: "archived", isArchived: true },
     ],
   });
-  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.bowls}`), false);
-  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.bowls), false);
+  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.revueltos}`), false);
+  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.revueltos), false);
 });
 
-test("un bowl activo habilita el enlace y la sección de carta", () => {
-  const state = renderedState({ bowls: [activeBowl] });
-  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.bowls}`), true);
-  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.bowls), true);
+test("un Revuelto visible habilita el enlace y la sección de carta", () => {
+  const state = renderedState({ revueltos: [activeRevuelto] });
+  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.revueltos}`), true);
+  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.revueltos), true);
 });
 
 test("sin sucursales activas no existe enlace ni sección de sucursales", () => {
@@ -162,7 +159,7 @@ test("con merchandising activo aparecen enlace y sección", () => {
 
 test("cada enlace interno visible apunta a un id realmente renderizado", () => {
   const state = renderedState({
-    bowls: [activeBowl],
+    revueltos: [activeRevuelto],
     promotions: [currentPromotion],
     branches: [activeBranch],
     gallery: [{ id: "active", type: "IMAGE", imagePath: "gallery/a.webp", externalUrl: null, isActive: true }],

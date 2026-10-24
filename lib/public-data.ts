@@ -18,7 +18,7 @@ export type PublicSiteData =
   | {
       status: "ready";
       content: SiteContentInput;
-      visibleBowls: Awaited<ReturnType<typeof getBowls>>;
+      visibleRevueltos: Awaited<ReturnType<typeof getRevueltos>>;
       visiblePromotions: Awaited<ReturnType<typeof getPromotions>>;
       visibleBranches: Awaited<ReturnType<typeof getBranches>>;
       visibleGallery: Awaited<ReturnType<typeof getGallery>>;
@@ -26,12 +26,25 @@ export type PublicSiteData =
       navigation: ReturnType<typeof buildPublicNavigation>;
     };
 
-async function getBowls() {
-  return getPrisma().bowl.findMany({
-    where: { isAvailable: true, isArchived: false },
-    include: { sizes: { where: { isAvailable: true }, orderBy: { size: "asc" } } },
+async function getRevueltos() {
+  const revueltos = await getPrisma().bowl.findMany({
+    where: { isVisibleInNewMenu: true, isArchived: false },
+    include: {
+      recipeIngredients: {
+        include: { ingredient: true },
+        orderBy: { sortOrder: "asc" },
+      },
+      choiceGroups: {
+        include: { options: { include: { ingredient: true }, orderBy: { sortOrder: "asc" } } },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
     orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
   });
+  return revueltos.map((revuelto) => ({
+    ...revuelto,
+    price: revuelto.price ? Number(revuelto.price) : null,
+  }));
 }
 
 async function getPromotions() {
@@ -96,9 +109,9 @@ async function loadPublicSiteData(): Promise<PublicSiteData> {
   if (!hasDatabaseRuntimeConfiguration()) return { status: "configuration" };
 
   try {
-    const [content, bowls, promotions, branches, gallery, merchandise] = await Promise.all([
+    const [content, revueltos, promotions, branches, gallery, merchandise] = await Promise.all([
       getSiteContent(),
-      getBowls(),
+      getRevueltos(),
       getPromotions(),
       getBranches(),
       getGallery(),
@@ -106,7 +119,7 @@ async function loadPublicSiteData(): Promise<PublicSiteData> {
     ]);
 
     const visibleContent = selectVisiblePublicContent(
-      { bowls, promotions, branches, gallery, merchandise },
+      { revueltos, promotions, branches, gallery, merchandise },
     );
     const navigation = buildPublicNavigation(visibleContent);
 

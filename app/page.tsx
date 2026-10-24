@@ -6,6 +6,7 @@ import { PUBLIC_SECTION_IDS } from "@/lib/public-visibility";
 import { formatPromotionPublicAvailability } from "@/lib/promotions/schema";
 import { GalleryDisplay } from "@/components/public/gallery-display";
 import { PublicHeader } from "@/components/public/public-header";
+import { RevueltoCard } from "@/components/public/revuelto-card";
 import { RevealController } from "@/components/public/reveal-controller";
 import { AddToCartButton } from "@/components/public/order/add-to-cart-button";
 import {
@@ -69,16 +70,6 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
     : { orderingEnabled: false, cashEnabled: false, transferEnabled: false, mercadoPagoEnabled: false };
   const orderProducts: PublicOrderProduct[] = data.status === "ready"
     ? [
-        ...data.visibleBowls.flatMap((bowl) => bowl.sizes.map((size) => ({
-          key: `BOWL:${bowl.id}:${size.size}`,
-          type: "BOWL" as const,
-          productId: bowl.id,
-          size: size.size,
-          name: bowl.name,
-          variant: `${size.size === "SMALL" ? "Chico" : "Grande"} (${size.ounces} oz)`,
-          unitPriceCents: Math.round(Number(size.price) * 100),
-          imageUrl: bowl.imageUrl,
-        }))),
         ...data.visibleMerchandise.map((item) => ({
           key: `MERCHANDISE:${item.id}`,
           type: "MERCHANDISE" as const,
@@ -129,34 +120,15 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
 
       {data.status === "ready" && (
         <>
-          {data.navigation.hasBowls && (
-            <section id={PUBLIC_SECTION_IDS.bowls} className="public-section public-menu-section">
+          {data.navigation.hasRevueltos && (
+            <section id={PUBLIC_SECTION_IDS.revueltos} className="public-section public-menu-section">
               <div className="public-section-heading" data-reveal>
                 <h2>{content.menuSectionTitle || "La carta"}</h2>
                 {content.menuSectionDescription && <p>{content.menuSectionDescription}</p>}
               </div>
               <div className="public-bowl-grid">
-                {data.visibleBowls.map((bowl, index) => (
-                  <article key={bowl.id} className="public-bowl-card" data-reveal>
-                    <span className="public-bowl-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                    <div className="public-bowl-image">
-                      {bowl.imageUrl ? <Image src={bowl.imageUrl} alt={bowl.name} fill sizes="(max-width: 719px) 100vw, (max-width: 1099px) 50vw, 33vw" /> : <p>Foto próximamente</p>}
-                    </div>
-                    <div className="public-bowl-body">
-                      <h3>{bowl.name}</h3>
-                      <p className="public-bowl-description">{bowl.description || bowl.shortDescription}</p>
-                      <div className="public-size-list">
-                        {bowl.sizes.map((size) => (
-                          <div key={size.id} className="public-size-row">
-                            <span><strong>{size.size === "SMALL" ? "Small" : "Large"}</strong> · {size.ounces} oz · {size.eggQuantity} huevos</span>
-                            <strong>{currencyFormatter.format(Number(size.price))}</strong>
-                            {size.quantityNotes && <small>{size.quantityNotes}</small>}
-                            <AddToCartButton item={{ type: "BOWL", productId: bowl.id, size: size.size }} name={`${bowl.name}, ${size.size === "SMALL" ? "chico" : "grande"}`} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </article>
+                {data.visibleRevueltos.map((revuelto, index) => (
+                  <RevueltoCard key={revuelto.id} revuelto={revuelto} index={index} />
                 ))}
               </div>
             </section>

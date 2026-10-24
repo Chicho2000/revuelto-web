@@ -87,7 +87,7 @@ export type SiteContentInput = z.infer<typeof siteContentFormSchema>;
 
 export const DEFAULT_SITE_CONTENT: SiteContentInput = {
   heroTitle: "Fresco, nutritivo, resuelto.",
-  heroSubtitle: "Bowls de huevos revueltos",
+  heroSubtitle: "Revueltos de huevos",
   heroDescription: "Recetas fijas, frescas y llenas de sabor.",
   heroButtonText: "",
   heroButtonUrl: "",
@@ -113,7 +113,7 @@ export const DEFAULT_SITE_CONTENT: SiteContentInput = {
   tiktokUrl: "",
   footerText: "Fresco, nutritivo, resuelto.",
   seoTitle: "Revuelto | Fresco, nutritivo, resuelto",
-  seoDescription: "Bowls de huevos revueltos hechos para resolver tu día.",
+  seoDescription: "Revueltos de huevos hechos para resolver tu día.",
 };
 
 type StoredSiteContent = Partial<Record<keyof SiteContentInput, string | boolean | null>>;
