@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -163,7 +163,7 @@ export function PublicOrderCartProvider({
     try {
       window.localStorage.setItem(CART_STORAGE_KEY, serializeCart(items));
     } catch {
-      // El carrito sigue funcionando durante la sesiÃ³n aunque Storage estÃ© bloqueado.
+      // El carrito sigue funcionando durante la sesión aunque Storage esté bloqueado.
     }
   }, [hydrated, items]);
 
@@ -200,7 +200,7 @@ export function PublicOrderCartProvider({
     const availableSlots = Math.min(20 - existingQuantity, 50 - getTotalCartUnits(items));
     const quantityToAdd = Math.max(0, Math.min(safeQuantity, availableSlots));
     if (quantityToAdd === 0) {
-      announce("Alcanzaste el límite del pedido.");
+      announce("Alcanzaste el l�mite del pedido.");
       return;
     }
     setItems((current) => {
@@ -277,7 +277,7 @@ export function PublicOrderCartProvider({
 
   async function prepareOrder() {
     if (!branchId || !paymentMethod) {
-      setMessage("ElegÃ­ una sucursal y una forma de pago.");
+      setMessage("Elegí una sucursal y una forma de pago.");
       return;
     }
     if (submittingRef.current) return;
@@ -296,7 +296,7 @@ export function PublicOrderCartProvider({
         const body = await response.json().catch(() => null) as MercadoPagoCreateResponse | null;
         if (!response.ok || !body?.initPoint) {
           if (body?.code === "ITEM_UNAVAILABLE") router.refresh();
-          throw new Error(body?.error ?? "No pudimos iniciar el pago con Mercado Pago. IntentÃ¡ nuevamente.");
+          throw new Error(body?.error ?? "No pudimos iniciar el pago con Mercado Pago. Intentá nuevamente.");
         }
         window.location.assign(body.initPoint);
         return;
@@ -310,7 +310,7 @@ export function PublicOrderCartProvider({
       const body = await response.json().catch(() => null) as (PreparedResponse & { error?: string; code?: string }) | null;
       if (!response.ok || !body) {
         if (body?.code === "ITEM_UNAVAILABLE") router.refresh();
-        throw new Error(body?.error ?? "No pudimos preparar el pedido. IntentÃ¡ nuevamente.");
+        throw new Error(body?.error ?? "No pudimos preparar el pedido. Intentá nuevamente.");
       }
       const mobile = isMobileDevice(window.navigator);
       setPrepared(body);
@@ -319,7 +319,7 @@ export function PublicOrderCartProvider({
       setWhatsappHref(mobile ? body.mobileWhatsappUrl : body.desktopWhatsappUrl);
       setStep("prepared");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No pudimos preparar el pedido. IntentÃ¡ nuevamente.");
+      setMessage(error instanceof Error ? error.message : "No pudimos preparar el pedido. Intentá nuevamente.");
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -344,14 +344,14 @@ export function PublicOrderCartProvider({
         <div className="public-cart-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
           <div className="public-cart-drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-labelledby="public-cart-title">
             <div className="public-cart-header">
-              <div><p className="public-kicker">Tu selecciÃ³n</p><h2 id="public-cart-title">Pedido ({totalUnits})</h2></div>
-              <button type="button" className="public-cart-close" onClick={closeDrawer} aria-label="Cerrar pedido">Ã—</button>
+              <div><p className="public-kicker">Tu selección</p><h2 id="public-cart-title">Pedido ({totalUnits})</h2></div>
+              <button type="button" className="public-cart-close" onClick={closeDrawer} aria-label="Cerrar pedido">×</button>
             </div>
 
             {step === "cart" && (
               <>
                 <div className="public-cart-body">
-                  {items.length === 0 ? <p>Tu pedido todavÃ­a estÃ¡ vacÃ­o.</p> : items.map((item) => {
+                  {items.length === 0 ? <p>Tu pedido todavía está vacío.</p> : items.map((item) => {
                     const key = getCartItemKey(item);
                     const product = productMap.get(key);
                     return (
@@ -386,16 +386,16 @@ export function PublicOrderCartProvider({
 
             {step === "checkout" && (
               <div className="public-cart-checkout">
-                <button type="button" className="public-cart-back" onClick={() => setStep("cart")}>â† Volver al pedido</button>
-                <label>Sucursal<select value={branchId} onChange={(event) => setBranchId(event.target.value)}><option value="">ElegÃ­ una sucursal</option>{branches.map((branch) => <option value={branch.id} key={branch.id}>{branch.name} â€” {branch.address}, {branch.city}</option>)}</select></label>
+                <button type="button" className="public-cart-back" onClick={() => setStep("cart")}>← Volver al pedido</button>
+                <label>Sucursal<select value={branchId} onChange={(event) => setBranchId(event.target.value)}><option value="">Elegí una sucursal</option>{branches.map((branch) => <option value={branch.id} key={branch.id}>{branch.name} — {branch.address}, {branch.city}</option>)}</select></label>
                 {branches.length === 0 && <p className="form-message">No hay sucursales habilitadas para pedidos por WhatsApp.</p>}
                 <fieldset><legend>Forma de pago</legend>
                   <label><input type="radio" name="payment" value="CASH" checked={paymentMethod === "CASH"} disabled={!configuration.cashEnabled} onChange={() => setPaymentMethod("CASH")} /> Efectivo {!configuration.cashEnabled && <small>No disponible</small>}</label>
                   <label><input type="radio" name="payment" value="TRANSFER" checked={paymentMethod === "TRANSFER"} disabled={!configuration.transferEnabled} onChange={() => setPaymentMethod("TRANSFER")} /> Transferencia {!configuration.transferEnabled && <small>No disponible</small>}</label>
-                  <label><input type="radio" name="payment" value="MERCADO_PAGO" checked={paymentMethod === "MERCADO_PAGO"} disabled={!configuration.mercadoPagoEnabled} onChange={() => setPaymentMethod("MERCADO_PAGO")} /> Mercado Pago <small>{configuration.mercadoPagoEnabled ? "Checkout Pro Â· Prueba" : "No disponible"}</small></label>
+                  <label><input type="radio" name="payment" value="MERCADO_PAGO" checked={paymentMethod === "MERCADO_PAGO"} disabled={!configuration.mercadoPagoEnabled} onChange={() => setPaymentMethod("MERCADO_PAGO")} /> Mercado Pago <small>{configuration.mercadoPagoEnabled ? "Checkout Pro · Prueba" : "No disponible"}</small></label>
                 </fieldset>
                 {!configuration.cashEnabled && !configuration.transferEnabled && !configuration.mercadoPagoEnabled && <p className="form-message">Actualmente no hay formas de pago disponibles.</p>}
-                <button type="button" className="public-button public-button-dark" disabled={submitting || !branchId || !paymentMethod} onClick={() => void prepareOrder()}>{submitting ? (paymentMethod === "MERCADO_PAGO" ? "Iniciando pagoâ€¦" : "Validandoâ€¦") : (paymentMethod === "MERCADO_PAGO" ? "Pagar con Mercado Pago" : "Preparar pedido")}</button>
+                <button type="button" className="public-button public-button-dark" disabled={submitting || !branchId || !paymentMethod} onClick={() => void prepareOrder()}>{submitting ? (paymentMethod === "MERCADO_PAGO" ? "Iniciando pago…" : "Validando…") : (paymentMethod === "MERCADO_PAGO" ? "Pagar con Mercado Pago" : "Preparar pedido")}</button>
                 {message && <p className="form-message" role="alert">{message}</p>}
               </div>
             )}
@@ -403,17 +403,17 @@ export function PublicOrderCartProvider({
             {step === "prepared" && prepared && (
               <div className="public-cart-checkout public-cart-prepared">
                 <p className="public-kicker">Pedido validado</p>
-                <h3>RevisÃ¡ el total y continuÃ¡ en WhatsApp</h3>
-                <ul>{prepared.lines.map((line) => <li key={line.key}><span>{line.quantity} Ã— {line.name}{line.variant ? ` â€” ${line.variant}` : ""}</span><strong>{currencyFormatter.format(line.subtotalCents / 100)}</strong></li>)}</ul>
+                <h3>Revisá el total y continuá en WhatsApp</h3>
+                <ul>{prepared.lines.map((line) => <li key={line.key}><span>{line.quantity} × {line.name}{line.variant ? ` — ${line.variant}` : ""}</span><strong>{currencyFormatter.format(line.subtotalCents / 100)}</strong></li>)}</ul>
                 <div className="public-cart-total"><span>Total actual</span><strong>{currencyFormatter.format(prepared.totalCents / 100)}</strong></div>
                 <p>Sucursal: <strong>{prepared.branchName}</strong></p>
                 <a className="public-button public-button-dark" href={whatsappHref} target="_blank" rel="noopener noreferrer" onClick={() => {
                   if (preparedForMobile) setShowMobileFallback(true);
                 }}>Continuar por WhatsApp</a>
                 {preparedForMobile && showMobileFallback && (
-                  <a className="public-cart-back" href={prepared.mobileFallbackWhatsappUrl} target="_blank" rel="noopener noreferrer">Â¿No se abriÃ³ la app? Continuar en WhatsApp</a>
+                  <a className="public-cart-back" href={prepared.mobileFallbackWhatsappUrl} target="_blank" rel="noopener noreferrer">¿No se abrió la app? Continuar en WhatsApp</a>
                 )}
-                <p className="public-cart-note">WhatsApp abrirÃ¡ el chat con el texto precargado. PodÃ©s revisarlo antes de enviarlo; el carrito se conserva.</p>
+                <p className="public-cart-note">WhatsApp abrirá el chat con el texto precargado. Podés revisarlo antes de enviarlo; el carrito se conserva.</p>
                 <button type="button" className="public-cart-back" onClick={() => setStep("cart")}>Volver al pedido</button>
                 <button type="button" className="public-cart-clear" onClick={clearCart}>Vaciar pedido</button>
               </div>
