@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
   if (!input.success || input.data.paymentMethod !== "MERCADO_PAGO" || !idempotencyKey.success) {
     return NextResponse.json({ error: "Revisá el pedido antes de iniciar el pago." }, { status: 400 });
   }
+  if (input.data.items.some((item) => item.type === "REVUELTO")) {
+    return NextResponse.json({ error: "El pago con Mercado Pago para Revueltos estará disponible próximamente. Elegí efectivo o transferencia.", code: "PAYMENT_UNAVAILABLE" }, { status: 409 });
+  }
 
   try {
     const throttle = await consumePublicOrderRateLimit(getPublicOrderClientAddress(request.headers));

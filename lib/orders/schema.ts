@@ -1,7 +1,9 @@
 import { z } from "zod";
 
-export const CART_STORAGE_KEY = "revuelto-cart-v1";
-export const CART_STORAGE_VERSION = 1;
+// La nueva carta no puede reutilizar el carrito de BowlSize. Al cambiar la
+// versión se descartan esos ítems locales que ya no tienen una equivalencia.
+export const CART_STORAGE_KEY = "revuelto-cart-v2";
+export const CART_STORAGE_VERSION = 2;
 export const ORDER_MAX_QUANTITY_PER_LINE = 20;
 export const ORDER_MAX_TOTAL_UNITS = 50;
 export const ORDER_MAX_LINES = 50;
@@ -23,6 +25,27 @@ export const bowlCartItemSchema = z
   })
   .strict();
 
+const ingredientIdsSchema = z.array(z.string().uuid()).max(40).refine(
+  (ids) => new Set(ids).size === ids.length,
+  "Un ingrediente no puede repetirse.",
+);
+
+export const revueltoCartItemSchema = z
+  .object({
+    type: z.literal("REVUELTO"),
+    productId: z.string().uuid(),
+    excludedIngredientIds: ingredientIdsSchema,
+    choices: z.array(z.object({
+      groupId: z.string().uuid(),
+      ingredientIds: ingredientIdsSchema,
+    }).strict()).max(10).refine(
+      (choices) => new Set(choices.map((choice) => choice.groupId)).size === choices.length,
+      "Cada grupo se puede informar una sola vez.",
+    ),
+    quantity: quantitySchema,
+  })
+  .strict();
+
 export const merchandiseCartItemSchema = z
   .object({
     type: z.literal("MERCHANDISE"),
@@ -33,6 +56,7 @@ export const merchandiseCartItemSchema = z
 
 export const cartItemSchema = z.discriminatedUnion("type", [
   bowlCartItemSchema,
+  revueltoCartItemSchema,
   merchandiseCartItemSchema,
 ]);
 
@@ -69,13 +93,21 @@ export const prepareOrderSchema = z
 export type CartItem = z.infer<typeof cartItemSchema>;
 export type CartItemInput =
   | Omit<Extract<CartItem, { type: "BOWL" }>, "quantity">
+  | Omit<Extract<CartItem, { type: "REVUELTO" }>, "quantity">
   | Omit<Extract<CartItem, { type: "MERCHANDISE" }>, "quantity">;
 export type CartStorage = z.infer<typeof cartStorageSchema>;
 export type PrepareOrderInput = z.infer<typeof prepareOrderSchema>;
 export type OrderPaymentMethod = z.infer<typeof orderPaymentMethodSchema>;
 
 export function getCartItemKey(item: CartItem | CartItemInput) {
-  return item.type === "BOWL" ? `BOWL:${item.productId}:${item.size}` : `MERCHANDISE:${item.productId}`;
+  if (item.type === "BOWL") return `BOWL:${item.productId}:${item.size}`;
+  if (item.type === "MERCHANDISE") return `MERCHANDISE:${item.productId}`;
+  const excluded = [...item.excludedIngredientIds].sort().join(",");
+  const choices = [...item.choices]
+    .sort((left, right) => left.groupId.localeCompare(right.groupId))
+    .map((choice) => `${choice.groupId}=${[...choice.ingredientIds].sort().join(",")}`)
+    .join(";");
+  return `REVUELTO:${item.productId}:excluded=${excluded}:choices=${choices}`;
 }
 
 export function getTotalCartUnits(items: readonly CartItem[]) {

@@ -2,7 +2,7 @@ import type { OrderPaymentMethod } from "@/lib/orders/schema";
 
 export type PreparedOrderLine = {
   key: string;
-  type: "BOWL" | "MERCHANDISE";
+  type: "BOWL" | "REVUELTO" | "MERCHANDISE";
   sourceId: string;
   name: string;
   variant: string | null;
@@ -38,7 +38,7 @@ export function normalizeWhatsAppNumber(value: string) {
 }
 
 export function buildOrderMessage(lines: readonly PreparedOrderLine[], totalCents: number, paymentMethod: OrderPaymentMethod) {
-  const food = lines.filter((line) => line.type === "BOWL");
+  const food = lines.filter((line) => line.type === "BOWL" || line.type === "REVUELTO");
   const merchandise = lines.filter((line) => line.type === "MERCHANDISE");
   const sections: string[] = ["¡Hola! 👋 Quiero hacer este pedido:"];
 

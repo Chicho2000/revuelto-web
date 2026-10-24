@@ -173,3 +173,10 @@ Verificación local adicional del 2026-08-04: `GET http://localhost:3000/` respo
 - Al retomar Mercado Pago, revisar webhook y Vercel Deployment Protection sin documentar secrets o bypasses, y completar la matriz manual de [`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md#11-mercado-pago-pausa-y-pendientes). El pago aprobado y la consulta real por Payment ID ya fueron verificados.
 - Implementar la nueva carta por grupos según [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md). El contrato, modelo, catálogo global, editor y carta pública de Revueltos están completos. Sigue trasladar las selecciones al carrito, validarlas en servidor y reflejarlas en WhatsApp; luego vendrá la compatibilidad de snapshots. No aplicar migraciones destructivas ni inventar precios o fotos.
 - Resolver por separado los 8 advisories informados por `npm audit` (1 crítico, 7 altos) en Next.js, Sharp y dependencias transitivas; el SDK `mercadopago` no aparece en las cadenas reportadas. No ejecutar el fix forzado que propone un cambio rompiente de Prisma sin revisión específica.
+
+## Actualización local: selector y carrito de Revueltos (2026-10-24)
+
+- Cada tarjeta pública abre un selector modal: dos columnas con foto y configuración en escritorio, pantalla completa en celular.
+- Los ingredientes bloqueados se muestran en gris; solo se pueden excluir los que el administrador habilitó como removibles. Los grupos requeridos se controlan también antes de agregar.
+- El carrito v2 identifica cada combinación de exclusiones y elecciones; configuraciones distintas no se mezclan. Antes de WhatsApp, el servidor vuelve a comprobar receta, permisos, grupos, precio y disponibilidad.
+- Mercado Pago devuelve temporalmente `PAYMENT_UNAVAILABLE` si el pedido contiene un Revuelto, porque el snapshot histórico todavía no representa sus configuraciones. Efectivo y transferencia sí utilizan el flujo nuevo.

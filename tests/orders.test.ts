@@ -30,10 +30,16 @@ import { isPublicOrderRateLimited, ORDER_RATE_LIMIT_MAX_REQUESTS, ORDER_RATE_LIM
 const bowlId = "11111111-1111-4111-8111-111111111111";
 const merchandiseId = "22222222-2222-4222-8222-222222222222";
 const branchId = "33333333-3333-4333-8333-333333333333";
+const revueltoId = "44444444-4444-4444-8444-444444444444";
+const removableIngredientId = "55555555-5555-4555-8555-555555555555";
+const lockedIngredientId = "66666666-6666-4666-8666-666666666666";
+const choiceGroupId = "77777777-7777-4777-8777-777777777777";
+const choiceIngredientId = "88888888-8888-4888-8888-888888888888";
 
 const small = { type: "BOWL", productId: bowlId, size: "SMALL" } as const;
 const large = { type: "BOWL", productId: bowlId, size: "LARGE" } as const;
 const merch = { type: "MERCHANDISE", productId: merchandiseId } as const;
+const revuelto: Omit<Extract<CartItem, { type: "REVUELTO" }>, "quantity"> = { type: "REVUELTO", productId: revueltoId, excludedIngredientIds: [removableIngredientId], choices: [{ groupId: choiceGroupId, ingredientIds: [choiceIngredientId] }] };
 
 function catalog(overrides: Partial<OrderCatalog> = {}): OrderCatalog {
   return {
@@ -50,6 +56,18 @@ function catalog(overrides: Partial<OrderCatalog> = {}): OrderCatalog {
         { size: "SMALL", ounces: 25, price: "6500.00", isAvailable: true },
         { size: "LARGE", ounces: 35, price: "8000.00", isAvailable: true },
       ],
+    }],
+    revueltos: [{
+      id: revueltoId,
+      name: "Buenos días, buenas tardes",
+      price: "9000.00",
+      isVisibleInNewMenu: true,
+      isArchived: false,
+      recipeIngredients: [
+        { ingredientId: removableIngredientId, isRemovable: true, ingredient: { name: "Tomate" } },
+        { ingredientId: lockedIngredientId, isRemovable: false, ingredient: { name: "Huevo revuelto" } },
+      ],
+      choiceGroups: [{ id: choiceGroupId, label: "Elegí una proteína", minSelections: 1, maxSelections: 1, options: [{ ingredientId: choiceIngredientId, ingredient: { name: "Jamón" } }] }],
     }],
     merchandise: [{ id: merchandiseId, name: "Tote Bag", price: "7000.00", isActive: true }],
     branch: { id: branchId, name: "Centro", isActive: true, whatsappNumber: "+54 9 341 555 1234" },
@@ -77,6 +95,27 @@ test("incrementa, decrementa y elimina cantidades", () => {
   const decremented = setCartItemQuantity(twice, `BOWL:${bowlId}:SMALL`, 1);
   assert.equal(decremented[0].quantity, 1);
   assert.deepEqual(removeCartItem(decremented, `BOWL:${bowlId}:SMALL`), []);
+});
+
+test("mantiene distintas personalizaciones de un Revuelto en líneas separadas", () => {
+  const withTomatoRemoved = addCartItem([], revuelto);
+  const defaultRecipe = addCartItem(withTomatoRemoved, { ...revuelto, excludedIngredientIds: [] });
+  assert.equal(defaultRecipe.length, 2);
+  assert.equal(defaultRecipe[0].type, "REVUELTO");
+});
+
+test("valida en servidor exclusiones removibles y elecciones del Revuelto", () => {
+  const prepared = prepareOrderFromCatalog(input([{ ...revuelto, quantity: 1 }], "TRANSFER"), catalog());
+  assert.match(prepared.message, /Sin Tomate/);
+  assert.match(prepared.message, /Elegí una proteína: Jamón/);
+  expectOrderError(
+    () => prepareOrderFromCatalog(input([{ ...revuelto, excludedIngredientIds: [lockedIngredientId], quantity: 1 }], "CASH"), catalog()),
+    "ITEM_UNAVAILABLE",
+  );
+  expectOrderError(
+    () => prepareOrderFromCatalog(input([{ ...revuelto, choices: [], quantity: 1 }], "CASH"), catalog()),
+    "ITEM_UNAVAILABLE",
+  );
 });
 
 test("los contadores de SMALL, LARGE y merchandising permanecen independientes", () => {

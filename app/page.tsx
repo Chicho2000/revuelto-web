@@ -70,6 +70,17 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
     : { orderingEnabled: false, cashEnabled: false, transferEnabled: false, mercadoPagoEnabled: false };
   const orderProducts: PublicOrderProduct[] = data.status === "ready"
     ? [
+        ...data.visibleRevueltos
+          .filter((item) => item.price !== null)
+          .map((item) => ({
+            key: `REVUELTO:${item.id}`,
+            type: "REVUELTO" as const,
+            productId: item.id,
+            name: item.name,
+            variant: null,
+            unitPriceCents: Math.round(item.price! * 100),
+            imageUrl: item.imageUrl,
+          })),
         ...data.visibleMerchandise.map((item) => ({
           key: `MERCHANDISE:${item.id}`,
           type: "MERCHANDISE" as const,
