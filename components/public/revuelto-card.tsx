@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePublicOrderCart } from "@/components/public/order/cart-provider";
 import type { CartItemInput } from "@/lib/orders/schema";
 
@@ -91,7 +92,7 @@ export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; in
         <div className="public-bowl-image">{revuelto.imageUrl ? <Image src={revuelto.imageUrl} alt={revuelto.name} fill sizes="(max-width: 719px) 100vw, (max-width: 1099px) 50vw, 33vw" /> : <p>Foto próximamente</p>}</div>
         <div className="public-bowl-body"><h3>{revuelto.name}</h3><p className="public-bowl-description">{revuelto.description}</p><strong className="public-revuelto-price">{revuelto.price === null ? "Precio próximamente" : currencyFormatter.format(revuelto.price)}</strong><span className="public-revuelto-open-label">{revuelto.kind === "CUSTOM" ? "Armá tu Revuelto" : "Elegir y personalizar"}</span></div>
       </button>
-      {open && <div className="public-revuelto-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
+      {open && createPortal(<div className="public-revuelto-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
         <section className="public-revuelto-modal" role="dialog" aria-modal="true" aria-labelledby={`revuelto-dialog-${revuelto.id}`}>
           <header><h2 id={`revuelto-dialog-${revuelto.id}`}>{revuelto.name}</h2><button ref={closeButtonRef} type="button" onClick={closeDialog} aria-label="Cerrar">×</button></header>
           <div className="public-revuelto-modal-content">
@@ -104,7 +105,7 @@ export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; in
           </div>
           <footer><div className="public-revuelto-quantity" aria-label="Cantidad"><button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity === 1} aria-label="Quitar una unidad">−</button><span>{quantity}</span><button type="button" onClick={() => setQuantity((current) => Math.min(20, current + 1))} aria-label="Agregar una unidad">+</button></div><button type="button" className="public-button public-button-dark" disabled={!canAdd} onClick={addToCart}>{cart.enabled ? (revuelto.price === null ? "Precio próximamente" : `Agregar${quantity > 1 ? ` × ${quantity}` : ""}`) : "Pedidos no disponibles"}</button></footer>
         </section>
-      </div>}
+      </div>, document.body)}
     </article>
   );
 }
