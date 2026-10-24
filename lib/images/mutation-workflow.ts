@@ -30,8 +30,8 @@ export async function runImageMutation<T>({
 
   if (prepared) {
     await confirm(prepared);
-    if (deletePrevious) await deletePrevious();
   }
+  if (deletePrevious) await deletePrevious();
 
   return result;
 }

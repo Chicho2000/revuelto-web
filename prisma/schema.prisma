@@ -46,6 +46,7 @@ enum TemporaryImageTarget {
   BRANCH
   GALLERY
   MERCHANDISE
+  INGREDIENT
 }
 
 enum GalleryItemType {

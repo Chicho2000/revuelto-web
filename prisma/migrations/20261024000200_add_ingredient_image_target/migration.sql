@@ -1,0 +1,1 @@
+ALTER TYPE "TemporaryImageTarget" ADD VALUE 'INGREDIENT';
