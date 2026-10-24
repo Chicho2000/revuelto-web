@@ -3,7 +3,7 @@
 ## Objetivo
 
 Desarrollar la página pública y el panel administrativo de Revuelto, un
-negocio de bowls de huevos revueltos orientado principalmente a personas que
+negocio de revueltos de huevos orientado principalmente a personas que
 salen del gimnasio.
 
 ## Stack obligatorio
@@ -37,13 +37,19 @@ salen del gimnasio.
 
 ## Productos
 
-- No existen toppings seleccionables.
-- Cada bowl es una receta fija.
-- Cada bowl debe tener exactamente dos tamaños:
-  - SMALL: 25 oz.
-  - LARGE: 35 oz.
-- Cada tamaño puede tener precio, cantidad de huevos, notas de cantidades y
-  disponibilidad diferentes.
+- La nueva carta acordada está en `docs/NEW_MENU_SPEC.md`. Distinguirla del
+  modelo `Bowl`/`BowlSize` todavía implementado hasta completar la migración.
+- De cara al cliente los productos se llaman **Revueltos**. Habrá seis recetas
+  definidas y un único producto personalizable, **Tu Revuelto**.
+- Los Revueltos definidos no admiten agregados ni toppings. El cliente solo
+  puede quitar ingredientes que el administrador marque como removibles.
+- **Buenos días, buenas tardes** exige elegir exactamente una opción entre
+  jamón y panceta, además de las posibles exclusiones de su receta fija.
+- **Tu Revuelto** permite elegir ingredientes con los límites de la
+  especificación; los huevos revueltos son una base obligatoria e inamovible.
+- La nueva carta tiene un solo tamaño. El recipiente es de 20 oz; no usar
+  `SMALL`, `LARGE`, 25 oz ni 35 oz en la nueva experiencia.
+- Los precios y las fotos finales todavía no están definidos. No inventarlos.
 
 ## Identidad visual
 
@@ -95,6 +101,10 @@ Antes de terminar:
 5. Informar archivos modificados.
 6. Informar decisiones y supuestos.
 7. No hacer push automáticamente.
+
+El usuario ejecuta personalmente los comandos de Git que modifiquen el índice,
+las ramas, el historial o el remoto. Describirle los comandos y su efecto; no
+ejecutar `git add`, `commit`, `merge`, `rebase`, `reset` ni `push` por él.
 
 Al terminar una implementación que cambie arquitectura, seguridad, base de
 datos, variables, rutas o flujos, actualizar `docs/PROJECT_CONTEXT.md`.

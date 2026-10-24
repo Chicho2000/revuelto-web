@@ -7,10 +7,18 @@ del repositorio para que otra persona o agente pueda continuar sin reconstruir
 el contexto desde el historial de conversación. No contiene secretos ni valores
 de `.env.local`.
 
+**Nota de continuidad (2026-10-21):** este handoff conserva comprobaciones e
+instrucciones históricas de la rama `integrate-rescue-design`. Esa rama ya fue
+integrada por fast-forward a `main` (`37430de`). El contrato vigente de la nueva
+carta está en [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md); el código todavía no la
+implementa. Los comandos de Git que cambien índice, ramas, historial o remoto
+los ejecuta el usuario.
+
 Fuentes de verdad complementarias:
 
 - reglas obligatorias: [`../AGENTS.md`](../AGENTS.md);
 - contexto técnico vivo: [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md);
+- nueva carta acordada: [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md);
 - documentación técnica ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md);
 - historial detallado de Checkout Pro TEST: [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md);
 - esquema efectivo: [`../prisma/schema.prisma`](../prisma/schema.prisma);
@@ -481,53 +489,16 @@ pasar una prueba.
 
 ## 12. Próximo producto: nueva carta
 
-Esta información está acordada como dirección de producto, pero todavía **no
-está modelada ni implementada**.
+La nueva carta está especificada en [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md) y
+todavía **no está modelada ni implementada**. Sus nombres, en orden, son
+**Horneadito, Crunchi, Gramajo, Umami, Veggie, Buenos días, buenas tardes** y
+**Tu Revuelto**. Los seis primeros son recetas definidas: el cliente solo puede
+quitar ingredientes habilitados por el administrador. **Buenos días, buenas
+tardes** exige además elegir exactamente una entre jamón y panceta. **Tu
+Revuelto** es el único producto armado por el cliente, con límites por grupo.
+Todos llevan huevos revueltos obligatorios y usan un solo recipiente de 20 oz.
 
-### Bowls fijos
-
-1. **Horneado**: huevos revueltos, pollo macerado, calabaza asada, repollo,
-   zanahorias y cebolla morada horneadas, pimientos asados y maní tostado. Salsa:
-   tzatziki.
-2. **Agridulce**: huevos revueltos, pollo macerado, panceta crocante, calabaza asada, pepinos
-   agridulces, palta cremosa y almendras tostadas. Salsa agridulce de zanahoria y
-   jengibre.
-3. **Gramajo**: huevos revueltos, jamón cocido salteado, queso, panceta crocante, cebolla
-   caramelizada, papas pay y cebollita encurtida. Salsa de Dijon, miel, limón y
-   yogur; falta definir un nombre comercial breve.
-4. **Portobello**: huevos revueltos, pollo macerado, portobellos salteados, cherry confitado,
-   ceviche de zucchini y semillas de girasol garrapiñadas. Salsa de zanahoria y
-   jengibre.
-5. **Vegetariano**: huevos revueltos, calabaza asada, brócoli salteado, cherry confitado,
-   zanahorias y pimientos al horno, portobellos salteados y semillas de girasol
-   garrapiñadas. Salsa de soja, naranja y jengibre.
-6. **Desayuno/Merienda**: huevos revueltos, elección real entre panceta crocante
-   **o** jamón salteado, queso, palta cremosa, cherrys y maní tostado.
-
-### Bowl personalizable
-
-- base fija: huevos revueltos;
-- proteína: exactamente una entre pollo macerado, jamón o panceta crocante; no usar pollo
-  desmenuzado;
-- vegetales: hasta cuatro entre calabaza asada, repollo, cebolla, zanahoria, pimientos,
-  brócoli, portobello/hongo por definir, cherry, pepino agridulce/encurtido,
-  cebolla caramelizada, arvejas, palta cremosa y ceviche de zucchini/vegetal por
-  definir;
-- semillas/frutos secos: exactamente uno entre maní, almendras, semillas/frutos
-  secos garrapiñados y sésamo si se conserva; los garrapiñados pertenecen a esta
-  categoría, no a vegetales;
-- salsa: exactamente una entre tzatziki, agridulce de zanahoria y jengibre,
-  Dijon/miel/limón/yogur y soja/naranja/jengibre.
-
-### Tamaño y precio
-
-La nueva carta usa **un solo tamaño**. El recipiente previsto es de 20 oz, pero
-falta decidir si ese volumen debe mostrarse de forma destacada al cliente. Los
-precios todavía no son el foco, aunque el sistema actual exige precios positivos
-para ambos tamaños. Tampoco hay fotografías finales; usar el placeholder actual,
-no inventar imágenes.
-
-### Por qué requiere diseño previo
+### Impacto técnico pendiente
 
 No alcanza con ocultar botones `SMALL`/`LARGE`. Hoy el tamaño atraviesa:
 
@@ -542,14 +513,14 @@ No alcanza con ocultar botones `SMALL`/`LARGE`. Hoy el tamaño atraviesa:
 - tests de bowls, pedidos y Mercado Pago.
 
 Tampoco existen entidades para ingredientes, categorías, límites o selecciones
-personalizadas. El primer trabajo debe ser un análisis de opciones con impacto en
-datos existentes, UX administrativa, compatibilidad del carrito y migración. No
-crear dos sistemas paralelos ni codificar ingredientes únicamente en el cliente.
+personalizadas. La implementación se divide en los grupos de la nueva
+especificación; comienza con una migración aditiva y no codifica ingredientes
+únicamente en el cliente.
 
 ## 13. Riesgos y deuda técnica
 
-- La rama contiene 13 commits que aún no están en `main`; verificar estrategia de
-  integración antes de abrir trabajo concurrente.
+- La rama de integración ya fue incorporada a `main`; usar `main` como base del
+  siguiente grupo y dejar los comandos de Git al usuario.
 - La nueva carta contradice la invariancia de dos tamaños y necesita migración de
   dominio, datos, formularios, carrito, pedidos y tests.
 - El personalizable no tiene modelo de ingredientes ni snapshot específico.
@@ -621,7 +592,8 @@ no admite una activación Production y no debe improvisarse mediante variables.
 ## 15. Checklist para una computadora nueva
 
 1. Instalar Git, Node 22 LTS/compatible y npm.
-2. Clonar el repositorio y hacer checkout de `integrate-rescue-design`.
+2. Clonar el repositorio y trabajar desde `main`; la antigua rama
+   `integrate-rescue-design` ya está integrada.
 3. Ejecutar `git status --short --branch` y confirmar el commit esperado con
    `git log -1 --oneline --decorate`.
 4. Leer completos `AGENTS.md`, este handoff, `PROJECT_CONTEXT.md` y
@@ -708,7 +680,8 @@ incompatibles.
 
 ## 17. Qué no hacer
 
-- No hacer push, merge, rebase, cherry-pick o commit sin pedido.
+- No ejecutar por el usuario comandos de Git que cambien índice, ramas,
+  historial o remoto. Describirlos para que los ejecute personalmente.
 - No aplicar migraciones, `db push`, seed, reset ni cambios manuales de DB sin
   autorización.
 - No reactivar Mercado Pago ni configurar credenciales por iniciativa propia.
@@ -729,51 +702,35 @@ incompatibles.
 
 ## 18. Primer objetivo recomendado
 
-Preparar una propuesta técnica, sin implementar, para migrar desde bowls con dos
-tamaños fijos a:
-
-- seis recetas fijas;
-- un bowl personalizable con categorías y límites server-side;
-- un único tamaño;
-- compatibilidad clara con carrito, WhatsApp y el snapshot de Checkout Pro;
-- estrategia explícita para datos existentes y panel administrativo.
-
-La propuesta debería comparar al menos:
-
-1. mantener `BowlSize` como variante única genérica frente a eliminarlo;
-2. normalizar ingredientes/categorías/opciones frente a snapshots JSON
-   versionados;
-3. cómo representar la elección bacon/jamón del bowl Desayuno/Merienda;
-4. cómo guardar selecciones personalizadas en carrito y snapshot sin confiar en
-   nombres/precios del cliente;
-5. cómo migrar bowls actuales sin perder datos ni romper pedidos ya existentes;
-6. cómo tratar precio durante la etapa editorial en la que todavía no está
-   definido;
-7. impacto exacto en Prisma, admin, público, pedidos, Mercado Pago y tests.
-
-Antes de editar, presentar opciones, riesgos, migración y lista de archivos. La
-implementación debe esperar aprobación.
+Seguir los grupos de [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md) uno por uno. El
+primero fija el contrato documental; luego se prepara una migración aditiva de
+ingredientes y recetas, seguida de panel, público, pedidos y compatibilidad del
+snapshot. Los precios y fotografías finales no están disponibles. La elección
+jamón/panceta de **Buenos días, buenas tardes** y el armado de **Tu Revuelto**
+ya están confirmados y no se deben tratar como preguntas abiertas.
 
 ## 19. Preguntas e inconsistencias abiertas
 
-1. ¿El recipiente de 20 oz debe mostrarse al público o quedar como dato interno?
+1. El recipiente de 20 oz no necesita destacarse en la carta; queda por definir
+   si se mostrará en una ficha técnica secundaria.
 2. ¿Cuál será el nombre comercial corto de la salsa Dijon/miel/limón/yogur?
-3. ¿La opción “portobello/hongo” del personalizable será una sola opción o dos?
-4. ¿Se mantiene el ceviche de zucchini tal cual o se define otro vegetal?
+3. Unificar la nomenclatura de portobellos y otras preparaciones antes de cargar
+   el catálogo global, sin inventar opciones nuevas.
+4. La receta actual menciona ceviche de zucchini; definir solo si cambia el
+   negocio la preparación real.
 5. ¿Se mantiene el sésamo entre semillas/frutos secos?
 6. ¿Cómo se fijará el precio único y qué debe permitir el admin antes de tenerlo?
-7. ¿Los ingredientes requieren disponibilidad y precio extra individual, o solo
-   límites y selección?
-8. ¿El bowl Desayuno/Merienda se considera receta fija con una elección obligatoria
-   o una variante especial del personalizable?
+7. El cliente no compra toppings ni agregados para los Revueltos definidos;
+   definir la unidad operativa de remoción de preparaciones compuestas.
+8. **Buenos días, buenas tardes** es receta definida con una elección
+   obligatoria entre jamón y panceta; esto ya fue confirmado.
 9. ¿Se deben conservar bowls actuales como históricos/inactivos al migrar?
 10. ¿El usuario oficial de Instagram ya está cargado en `SiteContent` remoto?
 11. ¿Cuándo estará disponible la cuenta definitiva de Mercado Pago y qué
     deployment se usará para reiniciar las pruebas?
-12. ¿La rama `integrate-rescue-design` se integrará a `main` antes o después del
-    rediseño de la carta?
-13. `README.md` y algunos textos del admin describen Mercado Pago como pendiente;
-    ¿se actualizan ahora a “TEST validado y pausado” o al retomar la cuenta final?
+12. `integrate-rescue-design` ya está integrada a `main` mediante fast-forward.
+13. `README.md` ya describe Mercado Pago como TEST validado y pausado; revisar
+    textos administrativos al modificar esa interfaz.
 
 ## Prompt para el agente de la nueva computadora
 
@@ -787,6 +744,7 @@ Antes de hacer cualquier cambio, leé completamente:
 - docs/CODEX_HANDOFF.md
 - docs/PROJECT_CONTEXT.md
 - docs/PROJECT_DOCUMENTATION.md
+- docs/NEW_MENU_SPEC.md
 - docs/MERCADO_PAGO_DEBUGGING.md solo si necesitás contexto de pagos
 
 Después inspeccioná el repositorio real y confirmá:
@@ -804,15 +762,15 @@ aprobada, pero queda deliberadamente PAUSADO hasta recibir la cuenta definitiva 
 nueva del negocio. No lo reactives, no configures credenciales, no hagas pagos y
 no cambies su seguridad salvo que yo lo solicite expresamente.
 
-El próximo objetivo es analizar la nueva carta de seis bowls fijos, un bowl
-personalizable y un único tamaño. El modelo actual exige SMALL y LARGE en Prisma,
-admin, público, carrito, WhatsApp, snapshot de Mercado Pago y tests. No implementes
-todavía y no ocultes los dos tamaños solo en UI. Primero presentame alternativas de
-arquitectura, impacto, estrategia de migración, riesgos, preguntas abiertas y los
-archivos que cambiarían. Esperá mi aprobación antes de modificar. No inventes
-fotos, precios ni ingredientes.
+El próximo objetivo es implementar por grupos la nueva carta de
+docs/NEW_MENU_SPEC.md. El modelo actual exige SMALL y LARGE en Prisma, admin,
+público, carrito, WhatsApp, snapshot de Mercado Pago y tests. No ocultes los
+dos tamaños solo en UI. Antes de cada grupo explicá su impacto, riesgos,
+migración y archivos a cambiar. No inventes fotos, precios ni ingredientes.
 
-No hagas commit ni push. No apliques migraciones. No modifiques Auth, usuarios,
-Storage, Sentry, Cron, seguridad ni datos remotos. Usá el código y el resultado
-real de Prisma como fuente de verdad cuando contradigan documentación histórica.
+No ejecutes comandos de Git que modifiquen índice, ramas, historial o remoto:
+describilos para que yo los ejecute. No apliques migraciones destructivas sin mi
+autorización. No modifiques Auth, usuarios, Storage, Sentry, Cron, seguridad ni
+datos remotos como efecto colateral. Usá el código y el resultado real de Prisma
+como fuente de verdad cuando contradigan documentación histórica.
 ```

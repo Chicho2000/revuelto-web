@@ -1,8 +1,8 @@
 # Contexto técnico de Revuelto
 
-Actualizado: 2026-10-18. Este documento contiene estado comprobado y decisiones; `AGENTS.md` conserva las reglas obligatorias.
+Actualizado: 2026-10-21. Este documento contiene estado comprobado y decisiones; `AGENTS.md` conserva las reglas obligatorias. La nueva carta acordada está en [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md).
 
-Commit actual verificado antes de esta actualización documental: `7696f9e` (`Documentacion de integracion y debugging de Mercado Pago`) en `integrate-rescue-design`, coincidente con `origin/integrate-rescue-design`.
+Base de este grupo documental: `main` y `origin/main` en `37430de` tras integrar `integrate-rescue-design` por fast-forward el 2026-10-21. La captura de Vercel mostró ese commit en Production con estado Ready; eso confirma el despliegue, no una prueba funcional completa.
 
 Tiempo de trabajo declarado para el tramo entre `6b5b0ab` y `9f5599d`: aproximadamente **10 horas**, incluyendo recuperación del diseño de laptop, ajustes visuales, carrito/pedidos, pruebas y verificaciones.
 
@@ -10,9 +10,13 @@ Tiempo aproximado dedicado a la implementación y resolución de la incidencia d
 
 Handoff completo para otra computadora o agente: [`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md). Guía operativa ampliada: [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md). Diagnóstico completo de Checkout Pro: [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md).
 
-Estado de continuidad al 2026-10-18: Checkout Pro TEST queda deliberadamente pausado hasta recibir la cuenta definitiva o nueva de Mercado Pago del negocio; no debe reactivarse sin pedido explícito. El siguiente frente es analizar, antes de implementar, una nueva carta de seis bowls fijos, un bowl personalizable y un único tamaño. El dominio actual exige `SMALL` y `LARGE`, por lo que ese cambio necesita una propuesta transversal de datos, admin, web pública, carrito, pedidos y snapshots de pago; no alcanza con ocultar controles visuales.
+Estado de continuidad al 2026-10-21: Checkout Pro TEST queda deliberadamente pausado hasta recibir la cuenta definitiva o nueva de Mercado Pago del negocio; no debe reactivarse sin pedido explícito. La nueva carta tiene seis Revueltos definidos, un solo **Tu Revuelto** personalizable y un tamaño único de recipiente de 20 oz. En los definidos el cliente solo quita ingredientes habilitados por el administrador; **Buenos días, buenas tardes** exige además elegir jamón o panceta. El dominio implementado aún exige `SMALL` y `LARGE`, por lo que el cambio debe abarcar datos, admin, web pública, carrito, pedidos y snapshots de pago. Ver [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md).
 
-## Cambios desde el último push
+El dominio público definitivo todavía no está comprado ni decidido. El usuario
+considera comprarlo en DonWeb; eso no determina por sí solo dónde se alojará la
+aplicación. Vercel sigue siendo el despliegue actual hasta que se acuerde otro.
+
+## Cambios previos integrados a main
 
 - Se reforzó la protección servidor de los Route Handlers administrativos, con respuestas HTTP genéricas y coherentes, y se mantuvo el proxy limitado a navegación y refresco de sesión.
 - El flujo de imágenes ahora conserva bytes, formato, resolución y metadata de JPEG, PNG y WebP tras validarlos; también incorpora límites uniformes, rate limit persistente e idempotencia de temporales.
@@ -155,5 +159,5 @@ Verificación local adicional del 2026-08-04: `GET http://localhost:3000/` respo
 - Probar manualmente dashboard, CRUD de merchandising, navegación condicional, grilla 3/2/1, título crema y el intercambio de ilustraciones.
 - Mantener Mercado Pago pausado hasta recibir la cuenta definitiva o nueva. Cuando el usuario autorice retomarlo, conservar separadas las credenciales TEST de Preview y cualquier futura credencial productiva; nunca inferir el ambiente por el prefijo `APP_USR`.
 - Al retomar Mercado Pago, revisar webhook y Vercel Deployment Protection sin documentar secrets o bypasses, y completar la matriz manual de [`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md#11-mercado-pago-pausa-y-pendientes). El pago aprobado y la consulta real por Payment ID ya fueron verificados.
-- Antes de implementar la nueva carta, presentar opciones para un único tamaño, seis recetas fijas y un bowl personalizable, incluyendo migración e impacto en admin, carrito, pedidos, WhatsApp y snapshots de pago.
+- Implementar la nueva carta por grupos según [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md). El primer grupo fija el contrato documental; después siguen modelo aditivo, admin, página pública, pedidos y compatibilidad de snapshots. No aplicar migraciones destructivas ni inventar precios o fotos.
 - Resolver por separado los 8 advisories informados por `npm audit` (1 crítico, 7 altos) en Next.js, Sharp y dependencias transitivas; el SDK `mercadopago` no aparece en las cadenas reportadas. No ejecutar el fix forzado que propone un cambio rompiente de Prisma sin revisión específica.

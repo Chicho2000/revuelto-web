@@ -1,6 +1,7 @@
 # Revuelto
 
 Documentación técnica y operativa: [`docs/PROJECT_DOCUMENTATION.md`](./docs/PROJECT_DOCUMENTATION.md).
+Nueva carta acordada y grupos de implementación: [`docs/NEW_MENU_SPEC.md`](./docs/NEW_MENU_SPEC.md).
 
 Carta pública y panel administrativo privado para Revuelto. Está construido con
 Next.js App Router, TypeScript estricto, Tailwind CSS, Prisma, PostgreSQL en
@@ -53,9 +54,11 @@ usa desde un módulo `server-only` para operaciones administrativas de Storage.
 
 ## Prisma y migraciones
 
-La migración inicial está preparada en
-`prisma/migrations/20260801000000_init/migration.sql` fue aplicada según el
-estado informado del proyecto; no debe modificarse.
+La migración inicial está en
+`prisma/migrations/20260801000000_init/migration.sql` y no debe modificarse.
+Actualmente el repositorio contiene nueve migraciones; la base configurada en
+`.env.local` informó `Database schema is up to date!` el 2026-10-21. Este dato
+no verifica por sí solo otras bases o entornos de despliegue.
 
 Se generó sin conexión a Supabase mediante:
 
@@ -63,8 +66,9 @@ Se generó sin conexión a Supabase mediante:
 npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script
 ```
 
-Ese comando compara el esquema con una base vacía y solo emite SQL local. No se
-ejecutaron `migrate dev`, `migrate deploy`, `db push` ni resets.
+Ese comando compara el esquema con una base vacía y solo emite SQL local. En
+aquella preparación inicial no se ejecutaron `migrate dev`, `migrate deploy`,
+`db push` ni resets.
 
 Cuando las credenciales estén listas y exista autorización explícita para
 aplicar la migración, validá primero y luego usá:
@@ -112,4 +116,6 @@ Incluye base de datos, Auth, seguridad del panel, carta pública, identidad
 visual, infraestructura de imágenes, CRUD de bowls con SMALL/LARGE,
 sucursales, promociones, contenido, galería y merchandising. También incluye
 carrito público con preparación segura de pedidos por WhatsApp para efectivo y
-transferencia; Mercado Pago sigue pendiente de integración real.
+transferencia. Checkout Pro de Mercado Pago está implementado y probado en TEST,
+pero deliberadamente pausado. La nueva carta de Revueltos está documentada y
+todavía no implementada; el código actual continúa usando `SMALL`/`LARGE`.

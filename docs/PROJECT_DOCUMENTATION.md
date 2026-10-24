@@ -1,6 +1,6 @@
 # Revuelto — documentación técnica y operativa
 
-Actualizada: 2026-10-18.
+Actualizada: 2026-10-21.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las
 decisiones tomadas. No contiene secretos, contraseñas, tokens ni datos de
@@ -9,7 +9,8 @@ usuarios. Para el resumen vivo y los pendientes inmediatos, consultar también
 continuar desde otra computadora está en
 [`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md). La cronología completa de la
 incidencia de Checkout Pro está en
-[`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md).
+[`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md). El contrato de la
+nueva carta está en [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md).
 
 ## Dedicación registrada
 
@@ -52,13 +53,13 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Pedidos web | Carrito local de bowls/merchandising, recálculo servidor, sucursal, efectivo/transferencia y apertura de WhatsApp implementados. No es un sistema interno de pedidos. |
 | Mercado Pago | Checkout Pro TEST implementado con preference, webhook firmado y verificación server-side. Un pago aprobado real ya confirmó `Payment.get()` y evidenció que `live_mode` no identifica rígidamente las credenciales TEST modernas. Queda deliberadamente pausado hasta recibir la cuenta definitiva o nueva del negocio. |
 
-La siguiente etapa prevista no es Mercado Pago sino el análisis técnico de una
-nueva carta con seis bowls fijos, un bowl personalizable y un único tamaño. El
-modelo actual exige `SMALL` y `LARGE` a través de Prisma, administración, web
-pública, carrito, pedidos y snapshots de pago. Antes de implementarla se deben
-comparar opciones de dominio y migración; no debe resolverse ocultando tamaños
-solo en la interfaz. El detalle funcional y las preguntas abiertas están en
-[`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md#12-próximo-producto-nueva-carta).
+La siguiente etapa es implementar por grupos la carta definida en
+[`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md): seis Revueltos de receta definida, el
+único personalizable **Tu Revuelto** y un tamaño único. El modelo implementado
+sigue exigiendo `SMALL` y `LARGE` a través de Prisma, administración, web
+pública, carrito, pedidos y snapshots de pago. El primer grupo actualiza el
+contrato documental; los posteriores harán la transición sin limitarse a
+ocultar tamaños en la interfaz. Mercado Pago continúa pausado.
 
 ## Tecnologías
 
@@ -469,7 +470,7 @@ bloqueo, límite absoluto de sesión, imágenes y el flujo seguro de pedidos.
 
 ## Próxima etapa
 
-- Analizar antes de implementar la nueva carta: seis bowls fijos, un bowl personalizable y un único tamaño. Presentar alternativas de modelo y migración con impacto en admin, público, carrito, WhatsApp, `CheckoutOrder` y tests. No limitar el cambio a ocultar `SMALL`/`LARGE`.
+- Implementar por grupos la nueva carta de [`NEW_MENU_SPEC.md`](./NEW_MENU_SPEC.md), con migración aditiva y validación de admin, público, carrito, WhatsApp, `CheckoutOrder` y tests. No limitar el cambio a ocultar `SMALL`/`LARGE`.
 - Mantener Mercado Pago deliberadamente pausado hasta que el negocio reciba su cuenta definitiva o nueva. No configurar credenciales ni continuar pruebas por iniciativa propia.
 - Cuando el usuario autorice retomarlo, mantener TEST de Preview separado de Production y revisar webhook, `APP_BASE_URL` y Vercel Protection sin copiar credenciales ni bypasses. Completar entonces la matriz de [`CODEX_HANDOFF.md`](./CODEX_HANDOFF.md#11-mercado-pago-pausa-y-pendientes). El caso aprobado, `Payment.get()`, persistencia `APPROVED` y reconciliación idempotente ya fueron verificados con un pago TEST real.
 - Antes de producción seguir la lista de [`MERCADO_PAGO_DEBUGGING.md`](./MERCADO_PAGO_DEBUGGING.md#paso-a-producción); la implementación actual bloquea todo modo distinto de `TEST`.
