@@ -16,6 +16,20 @@ enum BowlSizeType {
   LARGE
 }
 
+enum BowlKind {
+  FIXED
+  CUSTOM
+}
+
+enum IngredientCategory {
+  BASE
+  PROTEIN
+  VEGETABLE
+  SEED_NUT
+  SAUCE
+  OTHER
+}
+
 enum DayOfWeek {
   MONDAY
   TUESDAY
@@ -131,6 +145,8 @@ model Bowl {
   id               String     @id @default(uuid()) @db.Uuid
   name             String
   slug             String     @unique
+  kind             BowlKind   @default(FIXED)
+  price            Decimal?   @db.Decimal(10, 2)
   shortDescription String
   description      String
   imageUrl         String?
@@ -142,9 +158,67 @@ model Bowl {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   sizes            BowlSize[]
+  recipeIngredients BowlRecipeIngredient[]
+  choiceGroups      BowlChoiceGroup[]
 
   @@index([displayOrder])
   @@index([isAvailable, isArchived])
+}
+
+model Ingredient {
+  id                String                 @id @default(uuid()) @db.Uuid
+  slug              String                 @unique
+  name              String
+  category          IngredientCategory
+  imagePath         String?
+  isActive          Boolean                @default(true)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  recipeIngredients BowlRecipeIngredient[]
+  choiceOptions     BowlChoiceOption[]
+
+  @@index([category, isActive, name])
+}
+
+model BowlRecipeIngredient {
+  bowlId       String     @db.Uuid
+  ingredientId String     @db.Uuid
+  sortOrder    Int        @default(0)
+  isRemovable  Boolean    @default(false)
+  bowl         Bowl       @relation(fields: [bowlId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([bowlId, ingredientId])
+  @@index([ingredientId])
+  @@index([bowlId, sortOrder])
+}
+
+model BowlChoiceGroup {
+  id            String             @id @default(uuid()) @db.Uuid
+  bowlId        String             @db.Uuid
+  code          String
+  label         String
+  category      IngredientCategory
+  minSelections Int
+  maxSelections Int
+  sortOrder     Int                @default(0)
+  bowl          Bowl               @relation(fields: [bowlId], references: [id], onDelete: Cascade)
+  options       BowlChoiceOption[]
+
+  @@unique([bowlId, code])
+  @@index([bowlId, sortOrder])
+}
+
+model BowlChoiceOption {
+  groupId      String          @db.Uuid
+  ingredientId String          @db.Uuid
+  sortOrder    Int             @default(0)
+  group        BowlChoiceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient      @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@id([groupId, ingredientId])
+  @@index([ingredientId])
+  @@index([groupId, sortOrder])
 }
 
 model BowlSize {
