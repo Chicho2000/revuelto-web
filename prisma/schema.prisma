@@ -21,6 +21,13 @@ enum BowlKind {
   CUSTOM
 }
 
+enum MenuCategory {
+  REVUELTO
+  REVUELTITO
+  SANGUCHITO
+  BEBIDA
+}
+
 enum IngredientCategory {
   BASE
   PROTEIN
@@ -147,7 +154,9 @@ model Bowl {
   name             String
   slug             String     @unique
   kind             BowlKind   @default(FIXED)
+  menuCategory     MenuCategory @default(REVUELTO)
   price            Decimal?   @db.Decimal(10, 2)
+  comboPrice       Decimal?   @db.Decimal(10, 2)
   shortDescription String
   description      String
   imageUrl         String?
@@ -165,6 +174,7 @@ model Bowl {
 
   @@index([displayOrder])
   @@index([isAvailable, isArchived])
+  @@index([menuCategory, isVisibleInNewMenu, isArchived, displayOrder])
 }
 
 model Ingredient {
