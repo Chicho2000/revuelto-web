@@ -14,7 +14,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Revisá los datos del ingrediente." }, { status: 400 });
   }
   try {
-    await updateIngredient(authorization.access.adminUser.id, id, parsed.data);
+    await updateIngredient(id, parsed.data);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return mutationErrorResponse("ingredients.update", error, getIngredientMutationError);

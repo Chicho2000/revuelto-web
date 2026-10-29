@@ -8,11 +8,11 @@ export async function POST(request: NextRequest) {
   const authorization = await getOwnerRouteAuthorization();
   if (authorization.response) return authorization.response;
   const parsed = ingredientFormSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success || parsed.data.removeImage) {
+  if (!parsed.success) {
     return NextResponse.json({ error: "Revisá los datos del ingrediente." }, { status: 400 });
   }
   try {
-    const ingredient = await createIngredient(authorization.access.adminUser.id, parsed.data);
+    const ingredient = await createIngredient(parsed.data);
     return NextResponse.json({ ok: true, ingredientId: ingredient.id }, { status: 201 });
   } catch (error) {
     return mutationErrorResponse("ingredients.create", error, getIngredientMutationError);

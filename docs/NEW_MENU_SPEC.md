@@ -70,7 +70,7 @@ de girasol garrapiñadas`, sin crear ingredientes nuevos por diferencia de texto
 
 ## Panel administrativo
 
-- Una sección global administra cada ingrediente por nombre e imagen opcional.
+- Una sección global administra cada ingrediente por nombre, categoría y estado activo.
   Los productos usan ese catálogo para que una corrección global no requiera
   editar cada receta por separado.
 - En cada Revuelto el administrador elige qué ingredientes del catálogo se
@@ -103,7 +103,7 @@ de girasol garrapiñadas`, sin crear ingredientes nuevos por diferencia de texto
 1. Contrato funcional y documentación (este grupo).
 2. Modelo de datos y migración aditiva del catálogo global, recetas y tamaño
    único, conservando datos anteriores.
-3. CRUD administrativo de ingredientes globales e imágenes.
+3. CRUD administrativo de ingredientes globales solo con texto.
 4. Edición administrativa de Revueltos, visibilidad, foto, precio, relación con
    ingredientes y permiso de remoción.
 5. Carta pública y detalle de producto con exclusiones y elecciones obligatorias.

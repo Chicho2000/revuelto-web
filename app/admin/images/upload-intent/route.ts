@@ -13,7 +13,9 @@ export async function POST(request: NextRequest) {
   const { access } = authorization;
 
   const parsed = intentSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Destino de imagen inválido." }, { status: 400 });
+  if (!parsed.success || parsed.data.target === TemporaryImageTarget.INGREDIENT) {
+    return NextResponse.json({ error: "Destino de imagen inválido." }, { status: 400 });
+  }
 
   try {
     const upload = await createTemporaryImageUpload(access.adminUser.id, parsed.data.target);

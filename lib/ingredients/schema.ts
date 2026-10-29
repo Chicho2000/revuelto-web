@@ -13,12 +13,7 @@ export const ingredientFormSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio.").max(160),
   category: z.enum(["BASE", "PROTEIN", "VEGETABLE", "SEED_NUT", "SAUCE", "OTHER"]),
   isActive: z.boolean(),
-  temporaryImageId: z.string().uuid().nullable(),
-  removeImage: z.boolean(),
-}).strict().refine((value) => !value.removeImage || !value.temporaryImageId, {
-  path: ["removeImage"],
-  message: "No podés quitar y reemplazar la imagen a la vez.",
-});
+}).strict();
 
 export const ingredientStatusSchema = z.object({ isActive: z.boolean() }).strict();
 

@@ -1,10 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Ingredient } from "@/generated/prisma/client";
 import { AdminConfigurationState } from "@/components/admin/configuration-state";
 import { IngredientStatusButton } from "@/components/admin/ingredients/ingredient-status-button";
 import { requireOwner } from "@/lib/auth";
-import { getPublicIngredientImageUrl } from "@/lib/ingredients/public-image";
 import { ingredientCategories } from "@/lib/ingredients/schema";
 import { getPrisma } from "@/lib/prisma";
 
@@ -50,13 +48,9 @@ export default async function AdminIngredientsPage({ searchParams }: { searchPar
       ) : (
         <div className="admin-merchandise-list">
           {items.map((item) => {
-            const imageUrl = getPublicIngredientImageUrl(item.imagePath);
             const category = ingredientCategories.find((entry) => entry.value === item.category);
             return (
-              <article className="admin-merchandise-card" key={item.id}>
-                <div className="admin-merchandise-thumb">
-                  {imageUrl ? <Image src={imageUrl} alt={item.name} width={320} height={240} /> : <span>Sin imagen</span>}
-                </div>
+              <article className="admin-merchandise-card admin-ingredient-card" key={item.id}>
                 <div>
                   <div className="admin-bowl-title-row">
                     <h2>{item.name}</h2>

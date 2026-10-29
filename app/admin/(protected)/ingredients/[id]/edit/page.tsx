@@ -3,7 +3,6 @@ import { z } from "zod";
 import { AdminConfigurationState } from "@/components/admin/configuration-state";
 import { IngredientForm } from "@/components/admin/ingredients/ingredient-form";
 import { requireOwner } from "@/lib/auth";
-import { getPublicIngredientImageUrl } from "@/lib/ingredients/public-image";
 import { getPrisma } from "@/lib/prisma";
 
 export default async function EditIngredientPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,14 +20,10 @@ export default async function EditIngredientPage({ params }: { params: Promise<{
       <IngredientForm
         mode="edit"
         ingredientId={item.id}
-        initialImageUrl={getPublicIngredientImageUrl(item.imagePath)}
-        hasExistingImage={Boolean(item.imagePath)}
         initialValues={{
           name: item.name,
           category: item.category,
           isActive: item.isActive,
-          temporaryImageId: null,
-          removeImage: false,
         }}
       />
     </section>
