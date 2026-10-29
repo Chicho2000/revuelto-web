@@ -16,7 +16,7 @@ Los seis Revueltos definidos figuran a **$14.000** cada uno. Sus recetas están 
 | Revueltito con palta | 3 huevos revueltos, palta, crackers y semillas. | $7.000 | $9.000 |
 | Revueltito | 3 huevos revueltos, crackers y semillas. | $7.000 | $9.000 |
 
-“Un topping” describe las recetas preparadas; el Revueltito simple no incluye topping adicional. La selección de café/agua es una variante del combo y aparece en la línea del pedido. La carta no especifica tipo de café ni tipo de agua para el combo.
+“Un topping” describe las recetas preparadas; el Revueltito simple no incluye topping adicional. Si el cliente elige el combo, debe seleccionar exactamente una bebida incluida: agua o café. La elección aparece en la línea del pedido. La carta no especifica tipo de café ni tipo de agua para el combo.
 
 ## Sanguchitos
 

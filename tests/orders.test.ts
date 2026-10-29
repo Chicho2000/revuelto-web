@@ -123,10 +123,12 @@ test("el combo de Revueltito conserva bebida y precio del servidor", () => {
   const orderCatalog = catalog({ revueltos: [product] });
   const solo = { ...revuelto, choices: [], excludedIngredientIds: [], quantity: 1 };
   const withCoffee = { ...solo, comboDrink: "COFFEE" as const };
-  const prepared = prepareOrderFromCatalog(input([solo, withCoffee]), orderCatalog);
-  assert.equal(prepared.totalCents, 1_600_000);
+  const withWater = { ...solo, comboDrink: "WATER" as const };
+  const prepared = prepareOrderFromCatalog(input([solo, withCoffee, withWater]), orderCatalog);
+  assert.equal(prepared.totalCents, 2_500_000);
   assert.match(prepared.message, /Con café/);
-  assert.equal(addCartItem(addCartItem([], solo), withCoffee).length, 2);
+  assert.match(prepared.message, /Con agua/);
+  assert.equal(addCartItem(addCartItem(addCartItem([], solo), withCoffee), withWater).length, 3);
   expectOrderError(() => prepareOrderFromCatalog(input([withCoffee]), catalog()), "ITEM_UNAVAILABLE");
 });
 

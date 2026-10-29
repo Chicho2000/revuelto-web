@@ -32,6 +32,7 @@ export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; in
   const [includedIngredients, setIncludedIngredients] = useState(() => new Set(revuelto.recipeIngredients.map((item) => item.ingredientId)));
   const [choices, setChoices] = useState<Record<string, string[]>>(() => initialChoices(revuelto));
   const [quantity, setQuantity] = useState(1);
+  const [comboSelected, setComboSelected] = useState(false);
   const [comboDrink, setComboDrink] = useState<"COFFEE" | "WATER" | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -39,6 +40,7 @@ export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; in
     setIncludedIngredients(new Set(revuelto.recipeIngredients.map((item) => item.ingredientId)));
     setChoices(initialChoices(revuelto));
     setQuantity(1);
+    setComboSelected(false);
     setComboDrink(null);
   }
   function closeDialog() { setOpen(false); }
@@ -76,15 +78,16 @@ export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; in
     const selected = choices[group.id] ?? [];
     return selected.length >= group.minSelections && selected.length <= group.maxSelections;
   });
-  const canAdd = cart.enabled && revuelto.price !== null && (comboDrink === null || revuelto.comboPrice !== null) && selectionComplete;
-  const currentPrice = comboDrink && revuelto.comboPrice !== null ? revuelto.comboPrice : revuelto.price;
+  const comboComplete = !comboSelected || (revuelto.menuCategory === "REVUELTITO" && revuelto.comboPrice !== null && comboDrink !== null);
+  const canAdd = cart.enabled && revuelto.price !== null && comboComplete && selectionComplete;
+  const currentPrice = comboSelected ? revuelto.comboPrice : revuelto.price;
   function addToCart() {
     if (!canAdd) return;
     const item: CartItemInput = {
       type: "REVUELTO",
       productId: revuelto.id,
       excludedIngredientIds: revuelto.recipeIngredients.filter((item) => item.isRemovable && !includedIngredients.has(item.ingredientId)).map((item) => item.ingredientId),
-      comboDrink,
+      comboDrink: comboSelected ? comboDrink : null,
       choices: revuelto.choiceGroups.map((group) => ({ groupId: group.id, ingredientIds: choices[group.id] ?? [] })),
     };
     cart.addQuantity(item, quantity);
@@ -105,12 +108,24 @@ export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; in
             <div className="public-revuelto-modal-image">{revuelto.imageUrl ? <Image src={revuelto.imageUrl} alt={revuelto.name} fill sizes="(max-width: 719px) 100vw, 50vw" /> : <span>Foto próximamente</span>}</div>
             <div className="public-revuelto-configurator">
               {revuelto.description && <p>{revuelto.description}</p>}<strong className="public-revuelto-modal-price">{currentPrice === null ? "Precio próximamente" : currencyFormatter.format(currentPrice)}</strong>
-              {revuelto.menuCategory === "REVUELTITO" && revuelto.comboPrice !== null && <fieldset><legend>Elegí tu opción</legend><label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={comboDrink === null} onChange={() => setComboDrink(null)} /><span>Solo</span><small>{revuelto.price !== null && currencyFormatter.format(revuelto.price)}</small></label><label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={comboDrink === "COFFEE"} onChange={() => setComboDrink("COFFEE")} /><span>Con café</span><small>{currencyFormatter.format(revuelto.comboPrice)}</small></label><label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={comboDrink === "WATER"} onChange={() => setComboDrink("WATER")} /><span>Con agua</span><small>{currencyFormatter.format(revuelto.comboPrice)}</small></label></fieldset>}
+              {revuelto.menuCategory === "REVUELTITO" && revuelto.comboPrice !== null && <>
+                <fieldset>
+                  <legend>Elegí tu opción</legend>
+                  <label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={!comboSelected} onChange={() => { setComboSelected(false); setComboDrink(null); }} /><span>Revueltito solo</span><small>{revuelto.price !== null && currencyFormatter.format(revuelto.price)}</small></label>
+                  <label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={comboSelected} onChange={() => setComboSelected(true)} /><span>Combo con bebida</span><small>{currencyFormatter.format(revuelto.comboPrice)}</small></label>
+                </fieldset>
+                {comboSelected && <fieldset>
+                  <legend>Bebida incluida · obligatorio</legend>
+                  <p className="public-revuelto-hint">Elegí una bebida para agregar el combo.</p>
+                  <label className="public-revuelto-option"><input type="radio" name={`combo-drink-${revuelto.id}`} checked={comboDrink === "WATER"} onChange={() => setComboDrink("WATER")} required /><span>Agua</span></label>
+                  <label className="public-revuelto-option"><input type="radio" name={`combo-drink-${revuelto.id}`} checked={comboDrink === "COFFEE"} onChange={() => setComboDrink("COFFEE")} required /><span>Café</span></label>
+                </fieldset>}
+              </>}
               {revuelto.recipeIngredients.length > 0 && <fieldset><legend>{revuelto.kind === "CUSTOM" ? "Base incluida" : "Ingredientes"}</legend><p className="public-revuelto-hint">{revuelto.kind === "CUSTOM" ? "Los huevos revueltos son la base del plato." : "Podés quitar los ingredientes habilitados."}</p>{revuelto.recipeIngredients.map((item) => <label className={`public-revuelto-option${!item.isRemovable ? " is-locked" : ""}`} key={item.ingredientId}><input type="checkbox" checked={includedIngredients.has(item.ingredientId)} disabled={!item.isRemovable} onChange={(event) => toggleRemovable(item.ingredientId, event.target.checked)} /><span>{item.ingredient.name}</span><small>{item.isRemovable ? (includedIngredients.has(item.ingredientId) ? "Incluido" : "Sin incluir") : "Incluido"}</small></label>)}</fieldset>}
               {revuelto.choiceGroups.map((group) => <fieldset key={group.id}><legend>{group.label}</legend><p className="public-revuelto-hint">Elegí {group.minSelections === group.maxSelections ? group.minSelections : `entre ${group.minSelections} y ${group.maxSelections}`}.</p>{group.options.map((option) => { const selected = (choices[group.id] ?? []).includes(option.ingredientId); const cannotAdd = !selected && (choices[group.id] ?? []).length >= group.maxSelections; return <label className="public-revuelto-option" key={option.ingredientId}><input type={group.maxSelections === 1 ? "radio" : "checkbox"} name={`choice-${revuelto.id}-${group.id}`} checked={selected} disabled={cannotAdd} onChange={(event) => toggleChoice(group, option.ingredientId, event.target.checked)} /><span>{option.ingredient.name}</span></label>; })}</fieldset>)}
             </div>
           </div>
-          <footer><div className="public-revuelto-quantity" aria-label="Cantidad"><button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity === 1} aria-label="Quitar una unidad">−</button><span>{quantity}</span><button type="button" onClick={() => setQuantity((current) => Math.min(20, current + 1))} aria-label="Agregar una unidad">+</button></div><button type="button" className="public-button public-button-dark" disabled={!canAdd} onClick={addToCart}>{cart.enabled ? (currentPrice === null ? "Precio próximamente" : `Agregar ${currencyFormatter.format(currentPrice * quantity)}`) : "Pedidos no disponibles"}</button></footer>
+          <footer><div className="public-revuelto-quantity" aria-label="Cantidad"><button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity === 1} aria-label="Quitar una unidad">−</button><span>{quantity}</span><button type="button" onClick={() => setQuantity((current) => Math.min(20, current + 1))} aria-label="Agregar una unidad">+</button></div><button type="button" className="public-button public-button-dark" disabled={!canAdd} onClick={addToCart}>{!cart.enabled ? "Pedidos no disponibles" : comboSelected && comboDrink === null ? "Elegí agua o café" : currentPrice === null ? "Precio próximamente" : `Agregar ${currencyFormatter.format(currentPrice * quantity)}`}</button></footer>
         </section>
       </div>, document.body)}
     </article>
