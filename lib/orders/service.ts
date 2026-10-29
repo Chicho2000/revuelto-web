@@ -27,6 +27,7 @@ type CatalogRevuelto = {
   menuCategory?: "REVUELTO" | "REVUELTITO" | "SANGUCHITO" | "BEBIDA";
   isVisibleInNewMenu: boolean;
   isArchived: boolean;
+  drinkOptions?: Array<{ id: string; name: string }>;
   recipeIngredients: Array<{ ingredientId: string; isRemovable: boolean; ingredient: { name: string } }>;
   choiceGroups: Array<{
     id: string;
@@ -120,15 +121,20 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
       }
       return ingredient;
     });
+    const choiceGroups = revuelto.menuCategory === "BEBIDA"
+      ? (revuelto.drinkOptions?.length ?? 0) > 1
+        ? [{ id: revuelto.id, label: "Elegí una opción", minSelections: 1, maxSelections: 1, options: revuelto.drinkOptions!.map((option) => ({ ingredientId: option.id, ingredient: { name: option.name } })) }]
+        : []
+      : revuelto.choiceGroups;
     const choicesByGroup = new Map(item.choices.map((choice) => [choice.groupId, choice.ingredientIds]));
-    if (choicesByGroup.size !== revuelto.choiceGroups.length) {
+    if (choicesByGroup.size !== choiceGroups.length) {
       throw new PublicOrderError("ITEM_UNAVAILABLE", "La personalización elegida ya no está disponible. Revisá tu carrito.");
     }
     const choiceLabels: string[] = [];
-    for (const group of revuelto.choiceGroups) {
+    for (const group of choiceGroups) {
       const ingredientIds = choicesByGroup.get(group.id);
       if (!ingredientIds || ingredientIds.length < group.minSelections || ingredientIds.length > group.maxSelections) {
-        throw new PublicOrderError("ITEM_UNAVAILABLE", "Completá las opciones requeridas del Revuelto.");
+        throw new PublicOrderError("ITEM_UNAVAILABLE", "Completá las opciones requeridas del producto.");
       }
       const options = new Map(group.options.map((option) => [option.ingredientId, option]));
       const selected = ingredientIds.map((ingredientId) => {
@@ -220,6 +226,7 @@ export async function getPublicOrderCatalog(input: PrepareOrderInput): Promise<O
         id: true, name: true, price: true, comboPrice: true, menuCategory: true, isVisibleInNewMenu: true, isArchived: true,
         recipeIngredients: { select: { ingredientId: true, isRemovable: true, ingredient: { select: { name: true } } } },
         choiceGroups: { select: { id: true, label: true, minSelections: true, maxSelections: true, options: { select: { ingredientId: true, ingredient: { select: { name: true } } } } } },
+        drinkOptions: { select: { id: true, name: true }, orderBy: { sortOrder: "asc" } },
       },
     }),
     prisma.merchandiseItem.findMany({ where: { id: { in: merchandiseIds } }, select: { id: true, name: true, price: true, isActive: true } }),

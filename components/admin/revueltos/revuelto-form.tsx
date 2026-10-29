@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useForm, useWatch } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { TemporaryImageField, type TemporaryImageFieldHandle } from "@/components/admin/temporary-image-field";
 import { ingredientCategories } from "@/lib/ingredients/schema";
 import { revueltoFormSchema, type RevueltoFormInput } from "@/lib/revueltos/schema";
@@ -50,6 +50,7 @@ const emptyValues: RevueltoFormInput = {
   isVisibleInNewMenu: false,
   recipeIngredients: [],
   choiceGroups: [],
+  drinkOptions: [],
   temporaryImageId: null,
   removeImage: false,
 };
@@ -79,6 +80,7 @@ export function RevueltoForm({
     resolver: zodResolver(revueltoFormSchema),
     defaultValues: mode === "create" ? { ...initialValues, menuCategory: category } : initialValues,
   });
+  const { fields: drinkOptionFields, append: appendDrinkOption, remove: removeDrinkOption } = useFieldArray({ control, name: "drinkOptions" });
   const menuCategory = useWatch({ control, name: "menuCategory" });
   const kind = useWatch({ control, name: "kind" });
   const recipeIngredients = useWatch({ control, name: "recipeIngredients" });
@@ -125,10 +127,6 @@ export function RevueltoForm({
     setValue("choiceGroups", enabled ? breakfastChoiceGroup() : [], { shouldValidate: true });
   }
 
-  function enableDrinkVariants(enabled: boolean) {
-    setValue("choiceGroups", enabled ? [{ code: "drink-variant", label: "Elegí una variante", category: "OTHER", minSelections: 1, maxSelections: 1, sortOrder: 0, options: [] }] : [], { shouldValidate: true });
-  }
-
   async function save(values: RevueltoFormInput) {
     setFormMessage(null);
     try {
@@ -137,7 +135,7 @@ export function RevueltoForm({
         {
           method: mode === "create" ? "POST" : "PUT",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(values),
+          body: JSON.stringify({ ...values, drinkOptions: values.drinkOptions.map((option, index) => ({ ...option, sortOrder: index })) }),
         },
       );
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -329,13 +327,14 @@ export function RevueltoForm({
       ))}
 
       {menuCategory === "BEBIDA" && <fieldset className="admin-recipe-fieldset">
-        <legend>Variantes de la bebida (opcional)</legend>
-        <label className="admin-checkbox"><input type="checkbox" checked={choiceGroups.length > 0} disabled={disabled} onChange={(event) => enableDrinkVariants(event.target.checked)} /> El cliente debe elegir una variante</label>
-        {choiceGroups.length > 0 && <div className="admin-choice-options">
-          <p>Primero cargá cada variante en Ingredientes con la categoría Otros. Elegí al menos dos.</p>
-          {ingredients.filter((ingredient) => ingredient.category === "OTHER").map((ingredient) => <label className="admin-checkbox" key={ingredient.id}><input type="checkbox" checked={choiceGroups[0]?.options.some((option) => option.ingredientId === ingredient.id) ?? false} disabled={disabled || !ingredient.isActive} onChange={(event) => toggleChoiceOption("drink-variant", ingredient.id, event.target.checked)} />{ingredient.name}</label>)}
-        </div>}
-        {errors.choiceGroups && <small>{errors.choiceGroups.message}</small>}
+        <legend>Opciones de esta bebida ({drinkOptionFields.length})</legend>
+        <p>Si tiene una sola presentación, dejá la lista vacía. Si tiene sabores o variantes, agregá al menos dos; el cliente elegirá exactamente una.</p>
+        {drinkOptionFields.map((option, index) => <div className="admin-drink-option" key={option.id}>
+          <label>Opción {index + 1}<input {...register(`drinkOptions.${index}.name`)} autoComplete="off" placeholder="Ej.: Jugo de naranja" />{errors.drinkOptions?.[index]?.name && <small>{errors.drinkOptions[index]?.name?.message}</small>}</label>
+          <button className="admin-drink-option-button" type="button" onClick={() => removeDrinkOption(index)} disabled={disabled}>Quitar</button>
+        </div>)}
+        {errors.drinkOptions?.message && <small>{errors.drinkOptions.message}</small>}
+        <button className="admin-drink-option-button" type="button" onClick={() => appendDrinkOption({ name: "", sortOrder: drinkOptionFields.length })} disabled={disabled || drinkOptionFields.length >= 20}>Agregar opción</button>
       </fieldset>}
 
       <label className="admin-checkbox">

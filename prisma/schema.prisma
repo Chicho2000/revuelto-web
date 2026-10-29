@@ -171,6 +171,7 @@ model Bowl {
   sizes            BowlSize[]
   recipeIngredients BowlRecipeIngredient[]
   choiceGroups      BowlChoiceGroup[]
+  drinkOptions      BowlDrinkOption[]
 
   @@index([displayOrder])
   @@index([isAvailable, isArchived])
@@ -231,6 +232,16 @@ model BowlChoiceOption {
   @@id([groupId, ingredientId])
   @@index([ingredientId])
   @@index([groupId, sortOrder])
+}
+
+model BowlDrinkOption {
+  id        String @id @default(uuid()) @db.Uuid
+  bowlId    String @db.Uuid
+  name      String
+  sortOrder Int    @default(0)
+  bowl      Bowl   @relation(fields: [bowlId], references: [id], onDelete: Cascade)
+
+  @@index([bowlId, sortOrder])
 }
 
 model BowlSize {

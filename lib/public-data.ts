@@ -41,11 +41,23 @@ async function getMenuProducts() {
         include: { options: { include: { ingredient: true }, orderBy: { sortOrder: "asc" } } },
         orderBy: { sortOrder: "asc" },
       },
+      drinkOptions: { orderBy: { sortOrder: "asc" } },
     },
     orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
   });
   return revueltos.map((revuelto) => ({
     ...revuelto,
+    choiceGroups: revuelto.menuCategory === "BEBIDA"
+      ? revuelto.drinkOptions.length > 1
+        ? [{
+            id: revuelto.id,
+            label: "Elegí una opción",
+            minSelections: 1,
+            maxSelections: 1,
+            options: revuelto.drinkOptions.map((option) => ({ ingredientId: option.id, ingredient: { id: option.id, name: option.name } })),
+          }]
+        : []
+      : revuelto.choiceGroups,
     price: revuelto.price ? Number(revuelto.price) : null,
     comboPrice: revuelto.comboPrice ? Number(revuelto.comboPrice) : null,
   }));

@@ -31,17 +31,10 @@ function inputError(message: string): never {
 
 async function validateRecipe(input: RevueltoInput) {
   if (input.menuCategory === "BEBIDA") {
-    if (input.recipeIngredients.length || input.choiceGroups.length > 1) inputError("Las bebidas no llevan receta y admiten un solo grupo de variantes.");
-    const variant = input.choiceGroups[0];
-    if (variant) {
-      if (variant.code !== "drink-variant" || variant.category !== IngredientCategory.OTHER || variant.minSelections !== 1 || variant.maxSelections !== 1 || variant.options.length < 2) inputError("La bebida debe tener al menos dos variantes y exigir exactamente una.");
-      const ids = variant.options.map((option) => option.ingredientId);
-      const options = await getPrisma().ingredient.findMany({ where: { id: { in: ids }, category: IngredientCategory.OTHER }, select: { id: true } });
-      if (options.length !== ids.length) inputError("Una variante de bebida ya no existe o no es de la categoría Otros.");
-    }
+    if (input.recipeIngredients.length || input.choiceGroups.length || input.drinkOptions.length === 1) inputError("Las bebidas admiten ninguna opción o al menos dos variantes propias.");
     return;
   }
-  if (input.menuCategory !== "REVUELTO" && input.choiceGroups.length) inputError("Esta categoría no admite grupos de elección.");
+  if (input.drinkOptions.length || (input.menuCategory !== "REVUELTO" && input.choiceGroups.length)) inputError("Esta categoría no admite grupos de elección.");
   const ids = [
     ...input.recipeIngredients.map((item) => item.ingredientId),
     ...input.choiceGroups.flatMap((group) => group.options.map((option) => option.ingredientId)),
@@ -115,6 +108,7 @@ function recipeCreates(input: RevueltoInput) {
           create: group.options.map((option) => ({ ingredientId: option.ingredientId, sortOrder: option.sortOrder })),
         },
       })),
+    drinkOptions: input.drinkOptions.map((option) => ({ name: option.name, sortOrder: option.sortOrder })),
   };
 }
 
@@ -137,6 +131,7 @@ function recipeCreateData(input: RevueltoInput) {
   return {
     recipeIngredients: { create: creates.recipeIngredients },
     choiceGroups: { create: creates.choiceGroups },
+    drinkOptions: { create: creates.drinkOptions },
   };
 }
 
@@ -145,6 +140,7 @@ function recipeUpdateData(input: RevueltoInput) {
   return {
     recipeIngredients: { deleteMany: {}, create: creates.recipeIngredients },
     choiceGroups: { deleteMany: {}, create: creates.choiceGroups },
+    drinkOptions: { deleteMany: {}, create: creates.drinkOptions },
   };
 }
 

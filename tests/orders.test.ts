@@ -142,6 +142,29 @@ test("una bebida sin ingredientes se puede pedir y no admite exclusiones inventa
   expectOrderError(() => prepareOrderFromCatalog(input([{ ...beverage, excludedIngredientIds: [removableIngredientId] }]), orderCatalog), "ITEM_UNAVAILABLE");
 });
 
+test("una bebida con sabores exige exactamente una opción válida", () => {
+  const product = {
+    ...catalog().revueltos![0],
+    menuCategory: "BEBIDA" as const,
+    name: "Jugos Lumo",
+    price: "10000.00",
+    recipeIngredients: [],
+    choiceGroups: [],
+    drinkOptions: [
+      { id: choiceIngredientId, name: "Naranja" },
+      { id: removableIngredientId, name: "Manzana" },
+    ],
+  };
+  const orderCatalog = catalog({ revueltos: [product] });
+  const beverage = { ...revuelto, excludedIngredientIds: [], quantity: 1 };
+  const chosen = { ...beverage, choices: [{ groupId: revueltoId, ingredientIds: [choiceIngredientId] }] };
+  const prepared = prepareOrderFromCatalog(input([chosen]), orderCatalog);
+  assert.match(prepared.message, /Elegí una opción: Naranja/);
+  expectOrderError(() => prepareOrderFromCatalog(input([{ ...beverage, choices: [] }]), orderCatalog), "ITEM_UNAVAILABLE");
+  expectOrderError(() => prepareOrderFromCatalog(input([{ ...beverage, choices: [{ groupId: revueltoId, ingredientIds: [choiceIngredientId, removableIngredientId] }] }]), orderCatalog), "ITEM_UNAVAILABLE");
+  expectOrderError(() => prepareOrderFromCatalog(input([{ ...beverage, choices: [{ groupId: revueltoId, ingredientIds: [lockedIngredientId] }] }]), orderCatalog), "ITEM_UNAVAILABLE");
+});
+
 test("los contadores de SMALL, LARGE y merchandising permanecen independientes", () => {
   const items = [
     { ...small, quantity: 2 },

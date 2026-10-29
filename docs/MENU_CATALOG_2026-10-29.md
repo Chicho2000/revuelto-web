@@ -37,7 +37,7 @@ Los seis Revueltos definidos figuran a **$14.000** cada uno. Sus recetas están 
 | Línea Coca-Cola | $3.500 |
 | Agua con/sin gas | $3.000 |
 
-La carta no detalla sabores de Jugos Lumo ni variedades de la línea Coca-Cola. El panel permite añadir variantes desde el catálogo global de ingredientes, categoría “Otros”, cuando el negocio confirme sus nombres. Para agua se pueden cargar “Con gas” y “Sin gas” como variantes.
+La carta no detalla sabores de Jugos Lumo ni variedades de la línea Coca-Cola. Se cargan seis productos de Bebidas, uno por cada fila de esta tabla. En el panel, cada bebida puede tener opciones de texto propias: sin opciones si se vende en una sola presentación (por ejemplo, Soda Silvestre), o dos o más variantes cuando el cliente debe elegir exactamente una antes de agregar al carrito. Para agua se pueden cargar “Con gas” y “Sin gas” cuando corresponda. No se inventan sabores que no figuran en la carta.
 
 ## Información pública
 

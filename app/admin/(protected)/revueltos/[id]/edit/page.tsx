@@ -15,6 +15,7 @@ export default async function EditRevueltoPage({ params }: { params: Promise<{ i
       include: {
         recipeIngredients: { orderBy: { sortOrder: "asc" } },
         choiceGroups: { include: { options: { orderBy: { sortOrder: "asc" } }, }, orderBy: { sortOrder: "asc" } },
+        drinkOptions: { orderBy: { sortOrder: "asc" } },
       },
     }),
     getPrisma().ingredient.findMany({
@@ -49,7 +50,7 @@ export default async function EditRevueltoPage({ params }: { params: Promise<{ i
             sortOrder: item.sortOrder,
             isRemovable: item.isRemovable,
           })),
-          choiceGroups: revuelto.choiceGroups.map((group) => ({
+          choiceGroups: (revuelto.menuCategory === "BEBIDA" ? [] : revuelto.choiceGroups).map((group) => ({
             code: group.code as "breakfast-protein" | "protein" | "vegetables" | "seed-nut" | "sauce" | "drink-variant",
             label: group.label,
             category: group.category as "PROTEIN" | "VEGETABLE" | "SEED_NUT" | "SAUCE" | "OTHER",
@@ -58,6 +59,7 @@ export default async function EditRevueltoPage({ params }: { params: Promise<{ i
             sortOrder: group.sortOrder,
             options: group.options.map((option) => ({ ingredientId: option.ingredientId, sortOrder: option.sortOrder })),
           })),
+          drinkOptions: revuelto.drinkOptions.map((option) => ({ name: option.name, sortOrder: option.sortOrder })),
           temporaryImageId: null,
           removeImage: false,
         }}

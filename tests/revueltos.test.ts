@@ -16,6 +16,7 @@ const fixedRevuelto = {
   isVisibleInNewMenu: false,
   recipeIngredients: [{ ingredientId: eggId, sortOrder: 0, isRemovable: false }],
   choiceGroups: [],
+  drinkOptions: [],
   temporaryImageId: null,
   removeImage: false,
 };
@@ -59,6 +60,9 @@ test("acepta los grupos tipados que usará Tu Revuelto", () => {
 
 test("permite bebidas sin receta y rechaza un combo en otra categoría", () => {
   assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "BEBIDA", description: "", recipeIngredients: [] }).success, true);
+  assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "BEBIDA", recipeIngredients: [], drinkOptions: [{ name: "Naranja", sortOrder: 0 }] }).success, false);
+  assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "BEBIDA", recipeIngredients: [], drinkOptions: [{ name: "Naranja", sortOrder: 0 }, { name: "Manzana", sortOrder: 1 }] }).success, true);
+  assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "BEBIDA", recipeIngredients: [], drinkOptions: [{ name: "Naranja", sortOrder: 0 }, { name: " naranja ", sortOrder: 1 }] }).success, false);
   assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "SANGUCHITO", comboPrice: 9000 }).success, false);
   assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "REVUELTITO", price: 7000, comboPrice: 9000 }).success, true);
 });
