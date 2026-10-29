@@ -30,6 +30,18 @@ function inputError(message: string): never {
 }
 
 async function validateRecipe(input: RevueltoInput) {
+  if (input.menuCategory === "BEBIDA") {
+    if (input.recipeIngredients.length || input.choiceGroups.length > 1) inputError("Las bebidas no llevan receta y admiten un solo grupo de variantes.");
+    const variant = input.choiceGroups[0];
+    if (variant) {
+      if (variant.code !== "drink-variant" || variant.category !== IngredientCategory.OTHER || variant.minSelections !== 1 || variant.maxSelections !== 1 || variant.options.length < 2) inputError("La bebida debe tener al menos dos variantes y exigir exactamente una.");
+      const ids = variant.options.map((option) => option.ingredientId);
+      const options = await getPrisma().ingredient.findMany({ where: { id: { in: ids }, category: IngredientCategory.OTHER }, select: { id: true } });
+      if (options.length !== ids.length) inputError("Una variante de bebida ya no existe o no es de la categoría Otros.");
+    }
+    return;
+  }
+  if (input.menuCategory !== "REVUELTO" && input.choiceGroups.length) inputError("Esta categoría no admite grupos de elección.");
   const ids = [
     ...input.recipeIngredients.map((item) => item.ingredientId),
     ...input.choiceGroups.flatMap((group) => group.options.map((option) => option.ingredientId)),
@@ -42,6 +54,7 @@ async function validateRecipe(input: RevueltoInput) {
   if (byId.size !== new Set(ids).size) inputError("Uno de los ingredientes ya no existe.");
 
   const baseIngredients = input.recipeIngredients.filter((item) => byId.get(item.ingredientId)?.category === IngredientCategory.BASE);
+  if (input.menuCategory === "SANGUCHITO") return;
   if (baseIngredients.length !== 1) {
     inputError("Cada Revuelto debe tener una única base obligatoria.");
   }
@@ -54,6 +67,11 @@ async function validateRecipe(input: RevueltoInput) {
     if (group.options.some((option) => byId.get(option.ingredientId)?.category !== group.category)) {
       inputError("Cada opción debe pertenecer a la categoría de su grupo.");
     }
+  }
+
+  if (input.menuCategory === "REVUELTITO") {
+    if (input.kind !== "FIXED") inputError("Los Revueltitos tienen una receta definida.");
+    return;
   }
 
   if (input.kind === "FIXED") {
@@ -103,8 +121,10 @@ function recipeCreates(input: RevueltoInput) {
 function revueltoBaseData(input: RevueltoInput) {
   return {
     name: input.name,
+    menuCategory: input.menuCategory,
     kind: input.kind,
     price: input.price,
+    comboPrice: input.comboPrice,
     shortDescription: input.description.slice(0, 180),
     description: input.description,
     displayOrder: input.displayOrder,

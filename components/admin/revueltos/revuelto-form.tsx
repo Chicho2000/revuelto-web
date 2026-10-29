@@ -7,6 +7,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { TemporaryImageField, type TemporaryImageFieldHandle } from "@/components/admin/temporary-image-field";
 import { ingredientCategories } from "@/lib/ingredients/schema";
 import { revueltoFormSchema, type RevueltoFormInput } from "@/lib/revueltos/schema";
+import { menuCategories, type MenuCategory } from "@/lib/menu-categories";
 
 type CatalogIngredient = {
   id: string;
@@ -40,9 +41,11 @@ function breakfastChoiceGroup(): RevueltoFormInput["choiceGroups"] {
 
 const emptyValues: RevueltoFormInput = {
   name: "",
+  menuCategory: "REVUELTO",
   kind: "FIXED",
   description: "",
   price: null,
+  comboPrice: null,
   displayOrder: 0,
   isVisibleInNewMenu: false,
   recipeIngredients: [],
@@ -58,6 +61,7 @@ export function RevueltoForm({
   initialValues = emptyValues,
   initialImageUrl = null,
   hasExistingImage = false,
+  category = "REVUELTO",
 }: {
   mode: "create" | "edit";
   revueltoId?: string;
@@ -65,6 +69,7 @@ export function RevueltoForm({
   initialValues?: RevueltoFormInput;
   initialImageUrl?: string | null;
   hasExistingImage?: boolean;
+  category?: MenuCategory;
 }) {
   const router = useRouter();
   const imageFieldRef = useRef<TemporaryImageFieldHandle | null>(null);
@@ -72,12 +77,14 @@ export function RevueltoForm({
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const { control, register, handleSubmit, getValues, setValue, formState: { errors, isSubmitting } } = useForm<RevueltoFormInput>({
     resolver: zodResolver(revueltoFormSchema),
-    defaultValues: initialValues,
+    defaultValues: mode === "create" ? { ...initialValues, menuCategory: category } : initialValues,
   });
+  const menuCategory = useWatch({ control, name: "menuCategory" });
   const kind = useWatch({ control, name: "kind" });
   const recipeIngredients = useWatch({ control, name: "recipeIngredients" });
   const choiceGroups = useWatch({ control, name: "choiceGroups" });
   const price = useWatch({ control, name: "price" });
+  const comboPrice = useWatch({ control, name: "comboPrice" });
 
   const handleImageIdChange = useCallback((imageId: string | null) => {
     setValue("temporaryImageId", imageId, { shouldValidate: true });
@@ -118,6 +125,10 @@ export function RevueltoForm({
     setValue("choiceGroups", enabled ? breakfastChoiceGroup() : [], { shouldValidate: true });
   }
 
+  function enableDrinkVariants(enabled: boolean) {
+    setValue("choiceGroups", enabled ? [{ code: "drink-variant", label: "Elegí una variante", category: "OTHER", minSelections: 1, maxSelections: 1, sortOrder: 0, options: [] }] : [], { shouldValidate: true });
+  }
+
   async function save(values: RevueltoFormInput) {
     setFormMessage(null);
     try {
@@ -131,11 +142,11 @@ export function RevueltoForm({
       );
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
-        setFormMessage(result?.error ?? "No se pudo guardar el Revuelto.");
+        setFormMessage(result?.error ?? `No se pudo guardar el ${productName}.`);
         return;
       }
       imageFieldRef.current?.commit();
-      router.push(`/admin/revueltos?message=${mode === "create" ? "created" : "updated"}`);
+      router.push(`/admin/revueltos?category=${menuCategory}&message=${mode === "create" ? "created" : "updated"}`);
       router.refresh();
     } catch {
       setFormMessage("No se pudo conectar con el servidor. Intentá nuevamente.");
@@ -144,21 +155,23 @@ export function RevueltoForm({
 
   async function cancel() {
     await imageFieldRef.current?.discard();
-    router.push("/admin/revueltos");
+    router.push(`/admin/revueltos?category=${menuCategory}`);
   }
 
   const disabled = isSubmitting || isUploading;
   const breakfastGroup = choiceGroups.find((group) => group.code === "breakfast-protein");
+  const productName = menuCategories[menuCategory].singular;
 
   return (
     <form className="admin-bowl-form admin-revuelto-form" onSubmit={(event) => void handleSubmit(save)(event)}>
+      <input type="hidden" {...register("menuCategory")} />
       <div className="admin-form-grid">
         <label>
           Nombre
           <input {...register("name")} autoComplete="off" />
           {errors.name && <small>{errors.name.message}</small>}
         </label>
-        <label>
+        {menuCategory === "REVUELTO" && <label>
           Tipo de Revuelto
           <select
             {...register("kind")}
@@ -167,7 +180,7 @@ export function RevueltoForm({
             <option value="FIXED">Receta definida</option>
             <option value="CUSTOM">Tu Revuelto</option>
           </select>
-        </label>
+        </label>}
       </div>
 
       <label>
@@ -195,11 +208,17 @@ export function RevueltoForm({
         </label>
       </div>
 
+      {menuCategory === "REVUELTITO" && <label>
+        Precio con café o agua <span>(opcional durante la carga)</span>
+        <input type="number" min="1" step="0.01" value={comboPrice ?? ""} onChange={(event) => setValue("comboPrice", event.target.value === "" ? null : Number(event.target.value), { shouldValidate: true })} />
+        {errors.comboPrice && <small>{errors.comboPrice.message}</small>}
+      </label>}
+
       <TemporaryImageField
         ref={imageFieldRef}
         target="BOWL"
-        label="Foto del Revuelto (opcional)"
-        previewAlt="Previsualización del Revuelto"
+        label={`Foto de ${productName} (opcional)`}
+        previewAlt={`Previsualización de ${productName}`}
         initialImageUrl={initialImageUrl}
         disabled={disabled}
         onImageIdChange={handleImageIdChange}
@@ -208,7 +227,7 @@ export function RevueltoForm({
         onError={setFormMessage}
       />
 
-      <fieldset className="admin-recipe-fieldset">
+      {menuCategory !== "BEBIDA" && <fieldset className="admin-recipe-fieldset">
         <legend>Ingredientes de la receta</legend>
         <p>Elegí los ingredientes que se muestran. Los de base quedan bloqueados y nunca se pueden quitar.</p>
         <div className="admin-ingredient-picker">
@@ -251,9 +270,9 @@ export function RevueltoForm({
           })}
         </div>
         {errors.recipeIngredients && <small>{errors.recipeIngredients.message}</small>}
-      </fieldset>
+      </fieldset>}
 
-      {kind === "FIXED" ? (
+      {menuCategory === "REVUELTO" && (kind === "FIXED" ? (
         <fieldset className="admin-recipe-fieldset">
           <legend>Elección obligatoria (solo Buenos días, buenas tardes)</legend>
           <label className="admin-checkbox">
@@ -307,16 +326,26 @@ export function RevueltoForm({
           </div>
           {errors.choiceGroups && <small>{errors.choiceGroups.message}</small>}
         </fieldset>
-      )}
+      ))}
+
+      {menuCategory === "BEBIDA" && <fieldset className="admin-recipe-fieldset">
+        <legend>Variantes de la bebida (opcional)</legend>
+        <label className="admin-checkbox"><input type="checkbox" checked={choiceGroups.length > 0} disabled={disabled} onChange={(event) => enableDrinkVariants(event.target.checked)} /> El cliente debe elegir una variante</label>
+        {choiceGroups.length > 0 && <div className="admin-choice-options">
+          <p>Primero cargá cada variante en Ingredientes con la categoría Otros. Elegí al menos dos.</p>
+          {ingredients.filter((ingredient) => ingredient.category === "OTHER").map((ingredient) => <label className="admin-checkbox" key={ingredient.id}><input type="checkbox" checked={choiceGroups[0]?.options.some((option) => option.ingredientId === ingredient.id) ?? false} disabled={disabled || !ingredient.isActive} onChange={(event) => toggleChoiceOption("drink-variant", ingredient.id, event.target.checked)} />{ingredient.name}</label>)}
+        </div>}
+        {errors.choiceGroups && <small>{errors.choiceGroups.message}</small>}
+      </fieldset>}
 
       <label className="admin-checkbox">
         <input type="checkbox" {...register("isVisibleInNewMenu")} />
         Visible en la nueva carta
       </label>
-      <p className="admin-field-help">Esta visibilidad controla exclusivamente la carta pública nueva de Revueltos.</p>
+      <p className="admin-field-help">Este producto aparecerá en la sección de {menuCategories[menuCategory].label.toLowerCase()} cuando esté visible.</p>
       {formMessage && <p className="form-message" role="status">{formMessage}</p>}
       <div className="admin-form-actions">
-        <button type="submit" disabled={disabled}>{isSubmitting ? "Guardando…" : "Guardar Revuelto"}</button>
+        <button type="submit" disabled={disabled}>{isSubmitting ? "Guardando…" : `Guardar ${productName}`}</button>
         <button type="button" onClick={cancel} disabled={disabled}>Cancelar</button>
       </div>
     </form>

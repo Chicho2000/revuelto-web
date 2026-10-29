@@ -3,13 +3,16 @@ import Link from "next/link";
 import { AdminConfigurationState } from "@/components/admin/configuration-state";
 import { requireOwner } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import { menuCategories, parseMenuCategory } from "@/lib/menu-categories";
 
-export default async function AdminRevueltosPage({ searchParams }: { searchParams: Promise<{ message?: string }> }) {
+export default async function AdminRevueltosPage({ searchParams }: { searchParams: Promise<{ message?: string; category?: string }> }) {
   const access = await requireOwner();
   if (access.status === "configuration") return <AdminConfigurationState />;
-  const { message } = await searchParams;
+  const { message, category: rawCategory } = await searchParams;
+  const category = parseMenuCategory(rawCategory);
+  const title = menuCategories[category].label;
   const revueltos = await getPrisma().bowl.findMany({
-    where: { isArchived: false, recipeIngredients: { some: {} } },
+    where: { isArchived: false, menuCategory: category, ...(category === "BEBIDA" ? {} : { recipeIngredients: { some: {} } }) },
     include: { recipeIngredients: true },
     orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
   });
@@ -18,19 +21,19 @@ export default async function AdminRevueltosPage({ searchParams }: { searchParam
     <section className="admin-panel revueltos-admin-page">
       <div className="admin-panel-heading">
         <div>
-          <p className="eyebrow">Nueva carta · 20 oz</p>
-          <h1>Revueltos</h1>
-          <p>Configurá cada receta, sus ingredientes y qué elementos puede quitar el cliente.</p>
+          <p className="eyebrow">Nueva carta</p>
+          <h1>{title}</h1>
+          <p>{category === "BEBIDA" ? "Cargá nombre, descripción, precio y foto de cada bebida." : "Configurá cada receta, sus ingredientes y qué elementos puede quitar el cliente."}</p>
         </div>
-        <Link className="admin-primary-link" href="/admin/revueltos/new">Nuevo Revuelto</Link>
+        <Link className="admin-primary-link" href={`/admin/revueltos/new?category=${category}`}>Nuevo {menuCategories[category].singular}</Link>
       </div>
-      {message === "created" && <p className="admin-success">El Revuelto se creó correctamente.</p>}
+      {message === "created" && <p className="admin-success">{menuCategories[category].singular} creado correctamente.</p>}
       {message === "updated" && <p className="admin-success">Los cambios se guardaron.</p>}
 
       {revueltos.length === 0 ? (
         <div className="admin-empty-state">
-          <h2>Todavía no hay Revueltos configurados.</h2>
-          <p>Primero cargá los ingredientes globales y después armá cada receta.</p>
+          <h2>Todavía no hay {title} configurados.</h2>
+          <p>{category === "BEBIDA" ? "Cargá la primera bebida desde este panel." : "Primero cargá los ingredientes globales y después armá cada receta."}</p>
         </div>
       ) : (
         <div className="admin-bowl-list">
@@ -43,7 +46,7 @@ export default async function AdminRevueltosPage({ searchParams }: { searchParam
                 <div className="admin-bowl-title-row">
                   <div>
                     <h2>{revuelto.name}</h2>
-                    <p>{revuelto.kind === "CUSTOM" ? "Tu Revuelto" : "Receta definida"}</p>
+                    <p>{revuelto.kind === "CUSTOM" ? "Tu Revuelto" : category === "BEBIDA" ? "Bebida" : "Receta definida"}</p>
                   </div>
                   <span className={revuelto.isVisibleInNewMenu ? "status-active" : "status-inactive"}>
                     {revuelto.isVisibleInNewMenu ? "Visible en nueva carta" : "Borrador"}
@@ -52,6 +55,7 @@ export default async function AdminRevueltosPage({ searchParams }: { searchParam
                 <p>{revuelto.description}</p>
                 <div className="admin-bowl-prices">
                   <span>{revuelto.price ? <><strong>${revuelto.price.toString()}</strong></> : "Precio pendiente"}</span>
+                  {category === "REVUELTITO" && revuelto.comboPrice && <span>Con café o agua: ${revuelto.comboPrice.toString()}</span>}
                   <span>{revuelto.recipeIngredients.length} ingrediente{revuelto.recipeIngredients.length === 1 ? "" : "s"} en receta</span>
                 </div>
                 <div className="admin-bowl-actions">

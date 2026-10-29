@@ -3,6 +3,7 @@ import { AdminConfigurationState } from "@/components/admin/configuration-state"
 import { RevueltoForm } from "@/components/admin/revueltos/revuelto-form";
 import { requireOwner } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import { menuCategories } from "@/lib/menu-categories";
 
 export default async function EditRevueltoPage({ params }: { params: Promise<{ id: string }> }) {
   const access = await requireOwner();
@@ -25,19 +26,22 @@ export default async function EditRevueltoPage({ params }: { params: Promise<{ i
 
   return (
     <section className="admin-panel admin-revuelto-panel">
-      <p className="eyebrow">Nueva carta · 20 oz</p>
-      <h1>Editar Revuelto</h1>
+      <p className="eyebrow">Nueva carta</p>
+      <h1>Editar {menuCategories[revuelto.menuCategory].singular}</h1>
       <RevueltoForm
         mode="edit"
         revueltoId={revuelto.id}
+        category={revuelto.menuCategory}
         ingredients={ingredients}
         initialImageUrl={revuelto.imageUrl}
         hasExistingImage={Boolean(revuelto.imagePath)}
         initialValues={{
           name: revuelto.name,
+          menuCategory: revuelto.menuCategory,
           kind: revuelto.kind,
           description: revuelto.description,
           price: revuelto.price ? Number(revuelto.price) : null,
+          comboPrice: revuelto.comboPrice ? Number(revuelto.comboPrice) : null,
           displayOrder: revuelto.displayOrder,
           isVisibleInNewMenu: revuelto.isVisibleInNewMenu,
           recipeIngredients: revuelto.recipeIngredients.map((item) => ({
@@ -46,9 +50,9 @@ export default async function EditRevueltoPage({ params }: { params: Promise<{ i
             isRemovable: item.isRemovable,
           })),
           choiceGroups: revuelto.choiceGroups.map((group) => ({
-            code: group.code as "breakfast-protein" | "protein" | "vegetables" | "seed-nut" | "sauce",
+            code: group.code as "breakfast-protein" | "protein" | "vegetables" | "seed-nut" | "sauce" | "drink-variant",
             label: group.label,
-            category: group.category as "PROTEIN" | "VEGETABLE" | "SEED_NUT" | "SAUCE",
+            category: group.category as "PROTEIN" | "VEGETABLE" | "SEED_NUT" | "SAUCE" | "OTHER",
             minSelections: group.minSelections,
             maxSelections: group.maxSelections,
             sortOrder: group.sortOrder,

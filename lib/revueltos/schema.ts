@@ -14,9 +14,9 @@ const choiceOptionSchema = z.object({
 }).strict();
 
 const choiceGroupSchema = z.object({
-  code: z.enum(["breakfast-protein", "protein", "vegetables", "seed-nut", "sauce"]),
+  code: z.enum(["breakfast-protein", "protein", "vegetables", "seed-nut", "sauce", "drink-variant"]),
   label: z.string().trim().min(1).max(100),
-  category: z.enum(["PROTEIN", "VEGETABLE", "SEED_NUT", "SAUCE"]),
+  category: z.enum(["PROTEIN", "VEGETABLE", "SEED_NUT", "SAUCE", "OTHER"]),
   minSelections: z.number().int().min(0).max(4),
   maxSelections: z.number().int().min(1).max(4),
   sortOrder: z.number().int().min(0).max(10),
@@ -28,12 +28,14 @@ const choiceGroupSchema = z.object({
 
 export const revueltoFormSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio.").max(160),
+  menuCategory: z.enum(["REVUELTO", "REVUELTITO", "SANGUCHITO", "BEBIDA"]),
   kind: z.enum(["FIXED", "CUSTOM"]),
-  description: z.string().trim().min(1, "La descripción es obligatoria.").max(2000),
+  description: z.string().trim().max(2000),
   price: z.number().positive("El precio debe ser mayor que cero.").nullable(),
+  comboPrice: z.number().positive("El precio del combo debe ser mayor que cero.").nullable(),
   displayOrder: z.number().int().min(0).max(1000),
   isVisibleInNewMenu: z.boolean(),
-  recipeIngredients: z.array(recipeIngredientSchema).min(1, "Elegí al menos un ingrediente.").max(40)
+  recipeIngredients: z.array(recipeIngredientSchema).max(40)
     .superRefine((items, context) => {
       const ids = new Set<string>();
       for (const [index, item] of items.entries()) {
@@ -55,7 +57,13 @@ export const revueltoFormSchema = z.object({
     }),
   temporaryImageId: z.string().uuid().nullable(),
   removeImage: z.boolean(),
-}).strict().refine((value) => !value.removeImage || !value.temporaryImageId, {
+}).strict().superRefine((value, context) => {
+  if (value.menuCategory === "REVUELTO" && !value.description) context.addIssue({ code: "custom", path: ["description"], message: "La descripción es obligatoria." });
+  if (value.menuCategory !== "BEBIDA" && value.recipeIngredients.length === 0) context.addIssue({ code: "custom", path: ["recipeIngredients"], message: "Elegí al menos un ingrediente." });
+  if (value.menuCategory !== "REVUELTO" && value.kind !== "FIXED") context.addIssue({ code: "custom", path: ["kind"], message: "Solo Tu Revuelto admite armado libre." });
+  if (value.menuCategory !== "REVUELTITO" && value.comboPrice !== null) context.addIssue({ code: "custom", path: ["comboPrice"], message: "El combo solo corresponde a Revueltitos." });
+  if (value.menuCategory === "REVUELTITO" && value.comboPrice !== null && value.price !== null && value.comboPrice <= value.price) context.addIssue({ code: "custom", path: ["comboPrice"], message: "El combo debe costar más que el Revueltito solo." });
+}).refine((value) => !value.removeImage || !value.temporaryImageId, {
   path: ["removeImage"],
   message: "No podés quitar y reemplazar la imagen a la vez.",
 });

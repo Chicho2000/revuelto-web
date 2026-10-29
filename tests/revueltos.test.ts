@@ -7,9 +7,11 @@ const proteinId = "22222222-2222-4222-8222-222222222222";
 
 const fixedRevuelto = {
   name: "Horneadito",
+  menuCategory: "REVUELTO",
   kind: "FIXED",
   description: "Una receta lista para servir.",
   price: null,
+  comboPrice: null,
   displayOrder: 1,
   isVisibleInNewMenu: false,
   recipeIngredients: [{ ingredientId: eggId, sortOrder: 0, isRemovable: false }],
@@ -53,4 +55,10 @@ test("acepta los grupos tipados que usará Tu Revuelto", () => {
     }],
   });
   assert.equal(parsed.choiceGroups[0]?.code, "protein");
+});
+
+test("permite bebidas sin receta y rechaza un combo en otra categoría", () => {
+  assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "BEBIDA", description: "", recipeIngredients: [] }).success, true);
+  assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "SANGUCHITO", comboPrice: 9000 }).success, false);
+  assert.equal(revueltoFormSchema.safeParse({ ...fixedRevuelto, menuCategory: "REVUELTITO", price: 7000, comboPrice: 9000 }).success, true);
 });
