@@ -3,6 +3,9 @@ import { isPublicMerchandiseItem } from "@/lib/merchandise/schema";
 
 export const PUBLIC_SECTION_IDS = {
   revueltos: "carta",
+  revueltitos: "revueltitos",
+  sanguchitos: "sanguchitos",
+  bebidas: "bebidas",
   promotions: "promociones",
   branches: "sucursales",
   gallery: "galeria",
@@ -43,6 +46,9 @@ export function selectVisiblePublicContent<
 >(
   data: {
     revueltos: readonly TRevuelto[];
+    revueltitos?: readonly TRevuelto[];
+    sanguchitos?: readonly TRevuelto[];
+    bebidas?: readonly TRevuelto[];
     branches: readonly TBranch[];
     promotions: readonly TPromotion[];
     gallery?: readonly TGallery[];
@@ -51,6 +57,9 @@ export function selectVisiblePublicContent<
 ) {
   return {
     visibleRevueltos: data.revueltos.filter(isPublicRevuelto),
+    visibleRevueltitos: (data.revueltitos ?? []).filter(isPublicRevuelto),
+    visibleSanguchitos: (data.sanguchitos ?? []).filter(isPublicRevuelto),
+    visibleBebidas: (data.bebidas ?? []).filter(isPublicRevuelto),
     visibleBranches: data.branches.filter(isPublicBranch),
     visiblePromotions: data.promotions.filter(isPublicPromotion),
     visibleGallery: (data.gallery ?? []).filter(isPublicGalleryItem),
@@ -60,12 +69,18 @@ export function selectVisiblePublicContent<
 
 export function buildPublicNavigation(data: {
   visibleRevueltos: readonly unknown[];
+  visibleRevueltitos?: readonly unknown[];
+  visibleSanguchitos?: readonly unknown[];
+  visibleBebidas?: readonly unknown[];
   visibleBranches: readonly unknown[];
   visiblePromotions: readonly unknown[];
   visibleGallery?: readonly unknown[];
   visibleMerchandise?: readonly unknown[];
 }) {
   const hasRevueltos = data.visibleRevueltos.length > 0;
+  const hasRevueltitos = (data.visibleRevueltitos?.length ?? 0) > 0;
+  const hasSanguchitos = (data.visibleSanguchitos?.length ?? 0) > 0;
+  const hasBebidas = (data.visibleBebidas?.length ?? 0) > 0;
   const hasBranches = data.visibleBranches.length > 0;
   const hasPromotions = data.visiblePromotions.length > 0;
   const hasGallery = (data.visibleGallery?.length ?? 0) > 0;
@@ -73,20 +88,16 @@ export function buildPublicNavigation(data: {
 
   const visibleSections = [
     hasRevueltos
-      ? { id: PUBLIC_SECTION_IDS.revueltos, href: `#${PUBLIC_SECTION_IDS.revueltos}`, label: "Carta" }
+      ? { id: PUBLIC_SECTION_IDS.revueltos, href: `#${PUBLIC_SECTION_IDS.revueltos}`, label: "Revueltos" }
       : null,
+    hasRevueltitos ? { id: PUBLIC_SECTION_IDS.revueltitos, href: `#${PUBLIC_SECTION_IDS.revueltitos}`, label: "Revueltitos" } : null,
+    hasSanguchitos ? { id: PUBLIC_SECTION_IDS.sanguchitos, href: `#${PUBLIC_SECTION_IDS.sanguchitos}`, label: "Sanguchitos" } : null,
+    hasBebidas ? { id: PUBLIC_SECTION_IDS.bebidas, href: `#${PUBLIC_SECTION_IDS.bebidas}`, label: "Bebidas" } : null,
     hasPromotions
       ? {
           id: PUBLIC_SECTION_IDS.promotions,
           href: `#${PUBLIC_SECTION_IDS.promotions}`,
           label: "Promociones",
-        }
-      : null,
-    hasBranches
-      ? {
-          id: PUBLIC_SECTION_IDS.branches,
-          href: `#${PUBLIC_SECTION_IDS.branches}`,
-          label: "Sucursales",
         }
       : null,
     hasGallery
@@ -100,12 +111,12 @@ export function buildPublicNavigation(data: {
       ? {
           id: PUBLIC_SECTION_IDS.merchandise,
           href: `#${PUBLIC_SECTION_IDS.merchandise}`,
-          label: "Merchandising",
+          label: "Merch",
         }
       : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   const menuItems = visibleSections.map(({ id, href, label }) => ({ id, href, label }));
   const sectionIds = visibleSections.map(({ id }) => id);
 
-  return { hasRevueltos, hasBranches, hasPromotions, hasGallery, hasMerchandise, menuItems, sectionIds };
+  return { hasRevueltos, hasRevueltitos, hasSanguchitos, hasBebidas, hasBranches, hasPromotions, hasGallery, hasMerchandise, menuItems, sectionIds };
 }

@@ -18,7 +18,10 @@ export type PublicSiteData =
   | {
       status: "ready";
       content: SiteContentInput;
-      visibleRevueltos: Awaited<ReturnType<typeof getRevueltos>>;
+      visibleRevueltos: Awaited<ReturnType<typeof getMenuProducts>>;
+      visibleRevueltitos: Awaited<ReturnType<typeof getMenuProducts>>;
+      visibleSanguchitos: Awaited<ReturnType<typeof getMenuProducts>>;
+      visibleBebidas: Awaited<ReturnType<typeof getMenuProducts>>;
       visiblePromotions: Awaited<ReturnType<typeof getPromotions>>;
       visibleBranches: Awaited<ReturnType<typeof getBranches>>;
       visibleGallery: Awaited<ReturnType<typeof getGallery>>;
@@ -26,7 +29,7 @@ export type PublicSiteData =
       navigation: ReturnType<typeof buildPublicNavigation>;
     };
 
-async function getRevueltos() {
+async function getMenuProducts() {
   const revueltos = await getPrisma().bowl.findMany({
     where: { isVisibleInNewMenu: true, isArchived: false },
     include: {
@@ -44,6 +47,7 @@ async function getRevueltos() {
   return revueltos.map((revuelto) => ({
     ...revuelto,
     price: revuelto.price ? Number(revuelto.price) : null,
+    comboPrice: revuelto.comboPrice ? Number(revuelto.comboPrice) : null,
   }));
 }
 
@@ -109,9 +113,9 @@ async function loadPublicSiteData(): Promise<PublicSiteData> {
   if (!hasDatabaseRuntimeConfiguration()) return { status: "configuration" };
 
   try {
-    const [content, revueltos, promotions, branches, gallery, merchandise] = await Promise.all([
+    const [content, menuProducts, promotions, branches, gallery, merchandise] = await Promise.all([
       getSiteContent(),
-      getRevueltos(),
+      getMenuProducts(),
       getPromotions(),
       getBranches(),
       getGallery(),
@@ -119,7 +123,13 @@ async function loadPublicSiteData(): Promise<PublicSiteData> {
     ]);
 
     const visibleContent = selectVisiblePublicContent(
-      { revueltos, promotions, branches, gallery, merchandise },
+      {
+        revueltos: menuProducts.filter((item) => item.menuCategory === "REVUELTO"),
+        revueltitos: menuProducts.filter((item) => item.menuCategory === "REVUELTITO"),
+        sanguchitos: menuProducts.filter((item) => item.menuCategory === "SANGUCHITO"),
+        bebidas: menuProducts.filter((item) => item.menuCategory === "BEBIDA"),
+        promotions, branches, gallery, merchandise,
+      },
     );
     const navigation = buildPublicNavigation(visibleContent);
 

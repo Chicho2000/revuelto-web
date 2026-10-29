@@ -191,3 +191,12 @@
   .public-revuelto-modal > footer { padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); }
   .public-revuelto-modal > footer .public-button { flex: 1; min-width: 0; }
 }
+
+.public-revueltitos-section { background: var(--revuelto-green); }
+.public-sanguchitos-section { background: var(--revuelto-yellow); }
+.public-bebidas-section { background: var(--revuelto-blue); }
+.public-footer-contact { display: flex; flex-wrap: wrap; gap: 2rem 5rem; border-top: 1px solid rgb(239 229 218 / .55); padding: 1.5rem 0 2rem; }
+.public-footer-contact > div { display: grid; align-content: start; gap: .4rem; }
+.public-footer-contact h2 { margin: 0 0 .4rem; font-size: 1.3rem; }
+.public-footer-contact p { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin: 0; }
+.public-footer-contact a { width: fit-content; }

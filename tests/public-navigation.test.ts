@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseMenuCategory } from "../lib/menu-categories";
 import {
   buildPublicNavigation,
   PUBLIC_SECTION_IDS,
@@ -12,6 +13,11 @@ const activeRevuelto = {
   isVisibleInNewMenu: true,
   isArchived: false,
 };
+
+test("las categorías desconocidas no pueden seleccionar propiedades heredadas", () => {
+  assert.equal(parseMenuCategory("__proto__"), "REVUELTO");
+  assert.equal(parseMenuCategory("REVUELTITO"), "REVUELTITO");
+});
 
 const activeBranch = {
   id: "branch-1",
@@ -42,6 +48,9 @@ const currentPromotion: TestPromotion = {
 
 type PublicSource = {
   revueltos?: Array<typeof activeRevuelto>;
+  revueltitos?: Array<typeof activeRevuelto>;
+  sanguchitos?: Array<typeof activeRevuelto>;
+  bebidas?: Array<typeof activeRevuelto>;
   branches?: Array<typeof activeBranch>;
   promotions?: TestPromotion[];
   gallery?: Array<{
@@ -62,6 +71,9 @@ function renderedState(source: PublicSource = {}) {
   const visibleContent = selectVisiblePublicContent(
     {
       revueltos: source.revueltos ?? [],
+      revueltitos: source.revueltitos ?? [],
+      sanguchitos: source.sanguchitos ?? [],
+      bebidas: source.bebidas ?? [],
       branches: source.branches ?? [],
       promotions: source.promotions ?? [],
       gallery: source.gallery ?? [],
@@ -121,16 +133,22 @@ test("un Revuelto visible habilita el enlace y la sección de carta", () => {
   assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.revueltos), true);
 });
 
-test("sin sucursales activas no existe enlace ni sección de sucursales", () => {
+test("las sucursales no se muestran como sección pública", () => {
   const state = renderedState({ branches: [{ ...activeBranch, isActive: false }] });
   assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.branches}`), false);
-  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.branches), false);
 });
 
-test("una sucursal activa habilita el enlace y la sección de sucursales", () => {
+test("una sucursal activa conserva checkout sin abrir sección pública", () => {
   const state = renderedState({ branches: [activeBranch] });
-  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.branches}`), true);
-  assert.equal(state.sectionIds.includes(PUBLIC_SECTION_IDS.branches), true);
+  assert.equal(state.links.includes(`#${PUBLIC_SECTION_IDS.branches}`), false);
+});
+
+test("Revueltitos, Sanguchitos y Bebidas generan secciones independientes", () => {
+  const state = renderedState({ revueltitos: [activeRevuelto], sanguchitos: [activeRevuelto], bebidas: [activeRevuelto] });
+  for (const id of [PUBLIC_SECTION_IDS.revueltitos, PUBLIC_SECTION_IDS.sanguchitos, PUBLIC_SECTION_IDS.bebidas]) {
+    assert.equal(state.links.includes(`#${id}`), true);
+    assert.equal(state.sectionIds.includes(id), true);
+  }
 });
 
 test("sin multimedia activa no existe enlace ni sección de galería", () => {

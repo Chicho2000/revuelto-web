@@ -15,8 +15,8 @@ import {
   type PublicOrderConfiguration,
   type PublicOrderProduct,
 } from "@/components/public/order/cart-provider";
-import { normalizeWhatsAppNumber } from "@/lib/orders/whatsapp";
 import { hasMercadoPagoConfiguration } from "@/lib/env";
+import { PUBLIC_CONTACT_PHONE, PUBLIC_HOURS, PUBLIC_INSTAGRAM_HANDLE, PUBLIC_INSTAGRAM_URL } from "@/lib/public-contact";
 
 export const dynamic = "force-dynamic";
 
@@ -25,16 +25,6 @@ const currencyFormatter = new Intl.NumberFormat("es-AR", {
   currency: "ARS",
   maximumFractionDigits: 0,
 });
-
-const days: Record<string, string> = {
-  MONDAY: "Lunes",
-  TUESDAY: "Martes",
-  WEDNESDAY: "Miércoles",
-  THURSDAY: "Jueves",
-  FRIDAY: "Viernes",
-  SATURDAY: "Sábado",
-  SUNDAY: "Domingo",
-};
 
 export async function generateMetadata(): Promise<Metadata> {
   const data = await getPublicSiteData();
@@ -57,7 +47,7 @@ function ConfigurationNotice({ error = false }: { error?: boolean }) {
 
 export function PublicHome({ data }: { data: PublicSiteData }) {
   const content = data.status === "ready" ? data.content : DEFAULT_SITE_CONTENT;
-  const whatsappUrl = buildWhatsAppUrl(content);
+  const whatsappUrl = buildWhatsAppUrl({ ...content, whatsappNumber: PUBLIC_CONTACT_PHONE });
   const externalHeroButton = content.heroButtonUrl.startsWith("https://");
   const menuItems = data.status === "ready" ? data.navigation.menuItems : [];
   const orderConfiguration: PublicOrderConfiguration = data.status === "ready"
@@ -70,7 +60,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
     : { orderingEnabled: false, cashEnabled: false, transferEnabled: false, mercadoPagoEnabled: false };
   const orderProducts: PublicOrderProduct[] = data.status === "ready"
     ? [
-        ...data.visibleRevueltos
+        ...[...data.visibleRevueltos, ...data.visibleRevueltitos, ...data.visibleSanguchitos, ...data.visibleBebidas]
           .filter((item) => item.price !== null)
           .map((item) => ({
             key: `REVUELTO:${item.id}`,
@@ -79,6 +69,9 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
             name: item.name,
             variant: null,
             unitPriceCents: Math.round(item.price! * 100),
+            comboPriceCents: item.comboPrice === null ? null : Math.round(item.comboPrice * 100),
+            ingredientNames: item.recipeIngredients.map((recipe) => ({ id: recipe.ingredientId, name: recipe.ingredient.name })),
+            choiceGroups: item.choiceGroups.map((group) => ({ id: group.id, label: group.label, options: group.options.map((option) => ({ id: option.ingredientId, name: option.ingredient.name })) })),
             imageUrl: item.imageUrl,
           })),
         ...data.visibleMerchandise.map((item) => ({
@@ -94,7 +87,6 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
     : [];
   const orderBranches: PublicOrderBranch[] = data.status === "ready"
     ? data.visibleBranches
-        .filter((branch) => Boolean(normalizeWhatsAppNumber(branch.whatsappNumber)))
         .map((branch) => ({ id: branch.id, name: branch.name, address: branch.address, city: branch.city }))
     : [];
 
@@ -145,6 +137,21 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
             </section>
           )}
 
+          {data.navigation.hasRevueltitos && <section id={PUBLIC_SECTION_IDS.revueltitos} className="public-section public-menu-section public-revueltitos-section">
+            <div className="public-section-heading" data-reveal><h2>Revueltitos</h2><p>Con crackers y semillas. Solos o con café o agua.</p></div>
+            <div className="public-bowl-grid">{data.visibleRevueltitos.map((item, index) => <RevueltoCard key={item.id} revuelto={item} index={index} />)}</div>
+          </section>}
+
+          {data.navigation.hasSanguchitos && <section id={PUBLIC_SECTION_IDS.sanguchitos} className="public-section public-menu-section public-sanguchitos-section">
+            <div className="public-section-heading" data-reveal><h2>Sanguchitos</h2></div>
+            <div className="public-bowl-grid">{data.visibleSanguchitos.map((item, index) => <RevueltoCard key={item.id} revuelto={item} index={index} />)}</div>
+          </section>}
+
+          {data.navigation.hasBebidas && <section id={PUBLIC_SECTION_IDS.bebidas} className="public-section public-menu-section public-bebidas-section">
+            <div className="public-section-heading" data-reveal><h2>Bebidas</h2></div>
+            <div className="public-bowl-grid">{data.visibleBebidas.map((item, index) => <RevueltoCard key={item.id} revuelto={item} index={index} />)}</div>
+          </section>}
+
           {data.navigation.hasPromotions && (
             <section id={PUBLIC_SECTION_IDS.promotions} className="public-section public-promotions-section">
               <div className="public-section-heading public-section-heading-light" data-reveal>
@@ -163,27 +170,10 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
             </section>
           )}
 
-          {data.navigation.hasBranches && (
-            <section id={PUBLIC_SECTION_IDS.branches} className="public-section public-branches-section">
-              <div className="public-section-heading" data-reveal>
-                <h2>{content.branchesSectionTitle || "Sucursales"}</h2>
-                {content.branchesSectionDescription && <p>{content.branchesSectionDescription}</p>}
-              </div>
-              <div className="public-branch-grid">
-                {data.visibleBranches.map((branch) => (
-                  <article key={branch.id} className="public-branch-card" data-reveal>
-                    <div className="public-branch-heading"><p className="public-kicker">Punto Revuelto</p><h3>{branch.name}</h3><p>{branch.address}<br />{branch.city}</p>{branch.whatsappNumber && <p className="public-branch-phone">{branch.whatsappNumber}</p>}</div>
-                    <ul className="public-schedule">{branch.businessHours.map((hour) => <li className={hour.isClosed ? "is-closed" : ""} key={hour.id}><span>{days[hour.dayOfWeek]}</span><strong>{hour.isClosed ? "Cerrado" : `${hour.openingTime}—${hour.closingTime}`}</strong></li>)}</ul>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
           {data.navigation.hasMerchandise && (
             <section id={PUBLIC_SECTION_IDS.merchandise} className="public-section public-merchandise-section">
               <div className="public-section-heading" data-reveal>
-                <h2>Merchandising</h2>
+                <h2>Merch</h2>
               </div>
               <div className="public-merchandise-grid">
                 {data.visibleMerchandise.map((item) => (
@@ -229,7 +219,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
 
       </main>
       {whatsappUrl && <a className="public-whatsapp" href={whatsappUrl} target="_blank" rel="noopener noreferrer"><span className="public-whatsapp-dot" aria-hidden="true">↗</span><span>{content.whatsappButtonText || "WhatsApp"}</span></a>}
-      <footer className="public-footer"><div className="public-footer-top"><a href="#inicio" aria-label="Volver al inicio"><Image src="/brand/logos/logo-horizontal.svg" alt="Revuelto" width={560} height={210} /></a>{content.footerText && <p>{content.footerText}</p>}</div><div className="public-footer-bottom"><nav aria-label="Navegación del pie"><a href="#inicio">Inicio</a>{menuItems.map((item) => <a href={item.href} key={item.id}>{item.label}</a>)}</nav><div className="public-social-links">{content.instagramUrl && <a href={content.instagramUrl} target="_blank" rel="noopener noreferrer">Instagram ↗</a>}{content.tiktokUrl && <a href={content.tiktokUrl} target="_blank" rel="noopener noreferrer">TikTok ↗</a>}</div></div><Image className="public-footer-seal" src="/brand/logos/seal-light.svg" alt="" width={260} height={260} aria-hidden="true" /></footer>
+      <footer className="public-footer"><div className="public-footer-top"><a href="#inicio" aria-label="Volver al inicio"><Image src="/brand/logos/logo-horizontal.svg" alt="Revuelto" width={560} height={210} /></a>{content.footerText && <p>{content.footerText}</p>}</div><div className="public-footer-contact"><div><h2>Horarios</h2>{PUBLIC_HOURS.map((item) => <p key={item.label}><strong>{item.label}</strong><span>{item.hours} hs</span></p>)}</div><div><h2>Contacto</h2><a href={`https://wa.me/${PUBLIC_CONTACT_PHONE.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">{PUBLIC_CONTACT_PHONE}</a><a href={PUBLIC_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">{PUBLIC_INSTAGRAM_HANDLE}</a></div></div><div className="public-footer-bottom"><nav aria-label="Navegación del pie"><a href="#inicio">Inicio</a>{menuItems.map((item) => <a href={item.href} key={item.id}>{item.label}</a>)}</nav><div className="public-social-links">{content.tiktokUrl && <a href={content.tiktokUrl} target="_blank" rel="noopener noreferrer">TikTok ↗</a>}</div></div><Image className="public-footer-seal" src="/brand/logos/seal-light.svg" alt="" width={260} height={260} aria-hidden="true" /></footer>
     </div>
     </PublicOrderCartProvider>
   );
