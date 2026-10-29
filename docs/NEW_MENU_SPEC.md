@@ -1,5 +1,7 @@
 # Nueva carta de Revuelto
 
+**Ampliación del 29 de octubre de 2026:** las cartas recibidas agregan cinco Revueltitos, tres Sanguchitos y seis renglones de bebidas. También informan los precios de los seis Revueltos definidos. Ver [MENU_CATALOG_2026-10-29.md](./MENU_CATALOG_2026-10-29.md). La indicación anterior de precios pendientes solo sigue vigente para `Tu Revuelto` y productos sin importe confirmado.
+
 Esta especificación reúne las decisiones de producto vigentes. El código actual
 todavía usa `Bowl` y `BowlSize` con `SMALL`/`LARGE`; los grupos de implementación
 de abajo harán la transición. Los nombres y recetas anteriores en otros documentos
@@ -12,10 +14,10 @@ describen el sistema actual o un estado histórico, no la carta final.
 - Todos incluyen huevos revueltos, que nunca se pueden quitar.
 - Hay un solo tamaño. El recipiente es de 20 oz, dato que no necesita destacarse
   en la carta pública. No trasladar `SMALL`, `LARGE`, 25 oz ni 35 oz al nuevo flujo.
-- No hay fotos definitivas ni precios finales. Usar el tratamiento existente para
-  productos sin foto y no inventar imágenes ni importes. Un producto sin precio
-  confirmado podrá prepararse editorialmente, pero no cerrará un pedido con un
-  importe supuesto.
+- No hay fotos definitivas. Las cartas recibidas el 29 de octubre de 2026
+  informan los precios de los seis Revueltos definidos, Revueltitos,
+  Sanguchitos y bebidas. `Tu Revuelto` sigue sin precio confirmado. Un producto
+  sin precio puede prepararse editorialmente, pero no cerrar un pedido.
 - Los pedidos siguen siendo para retiro en sucursal y continúan por WhatsApp.
   Mercado Pago queda pausado; su compatibilidad de datos se conserva sin activar
   ni configurar pagos de producción.
