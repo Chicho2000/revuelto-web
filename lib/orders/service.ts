@@ -8,6 +8,7 @@ import {
   type PreparedOrderLine,
 } from "@/lib/orders/whatsapp";
 import { getPrisma } from "@/lib/prisma";
+import { PUBLIC_CONTACT_PHONE } from "@/lib/public-contact";
 
 type CatalogBowl = {
   id: string;
@@ -22,6 +23,8 @@ type CatalogRevuelto = {
   id: string;
   name: string;
   price: unknown;
+  comboPrice?: unknown;
+  menuCategory?: "REVUELTO" | "REVUELTITO" | "SANGUCHITO" | "BEBIDA";
   isVisibleInNewMenu: boolean;
   isArchived: boolean;
   recipeIngredients: Array<{ ingredientId: string; isRemovable: boolean; ingredient: { name: string } }>;
@@ -105,6 +108,9 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
     if (!revuelto || !revuelto.isVisibleInNewMenu || revuelto.isArchived) {
       throw new PublicOrderError("ITEM_UNAVAILABLE", "Algunos productos cambiaron o ya no están disponibles. Revisá tu carrito.");
     }
+    if (item.comboDrink && (revuelto.menuCategory !== "REVUELTITO" || revuelto.comboPrice == null)) {
+      throw new PublicOrderError("ITEM_UNAVAILABLE", "El combo elegido ya no está disponible. Revisá tu carrito.");
+    }
 
     const recipeById = new Map(revuelto.recipeIngredients.map((ingredient) => [ingredient.ingredientId, ingredient]));
     const excludedIngredients = item.excludedIngredientIds.map((ingredientId) => {
@@ -133,18 +139,20 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
       if (selected.length > 0) choiceLabels.push(`${group.label}: ${selected.join(", ")}`);
     }
     const variantParts = [
+      item.comboDrink === "COFFEE" ? "Con café" : item.comboDrink === "WATER" ? "Con agua" : null,
       excludedIngredients.length > 0 ? `Sin ${excludedIngredients.map((ingredient) => ingredient.ingredient.name).join(", ")}` : null,
       ...choiceLabels,
     ].filter((value): value is string => Boolean(value));
-    const unitPriceCents = moneyValueToCents(revuelto.price);
+    const unitPriceCents = moneyValueToCents(item.comboDrink ? revuelto.comboPrice : revuelto.price);
     return {
       key: getCartItemKey(item),
       type: "REVUELTO",
+      menuCategory: revuelto.menuCategory ?? "REVUELTO",
       sourceId: item.productId,
       name: revuelto.name,
       variant: variantParts.join(" · ") || null,
       size: null,
-      ounces: 20,
+      ounces: revuelto.menuCategory === "REVUELTO" ? 20 : null,
       quantity: item.quantity,
       unitPriceCents,
       subtotalCents: unitPriceCents * item.quantity,
@@ -209,7 +217,7 @@ export async function getPublicOrderCatalog(input: PrepareOrderInput): Promise<O
     prisma.bowl.findMany({
       where: { id: { in: revueltoIds } },
       select: {
-        id: true, name: true, price: true, isVisibleInNewMenu: true, isArchived: true,
+        id: true, name: true, price: true, comboPrice: true, menuCategory: true, isVisibleInNewMenu: true, isArchived: true,
         recipeIngredients: { select: { ingredientId: true, isRemovable: true, ingredient: { select: { name: true } } } },
         choiceGroups: { select: { id: true, label: true, minSelections: true, maxSelections: true, options: { select: { ingredientId: true, ingredient: { select: { name: true } } } } } },
       },
@@ -226,7 +234,7 @@ export async function getPublicOrderCatalog(input: PrepareOrderInput): Promise<O
     bowls,
     revueltos,
     merchandise,
-    branch,
+    branch: branch ? { ...branch, whatsappNumber: PUBLIC_CONTACT_PHONE } : null,
   };
 }
 

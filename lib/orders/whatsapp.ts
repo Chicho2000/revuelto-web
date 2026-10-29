@@ -3,6 +3,7 @@ import type { OrderPaymentMethod } from "@/lib/orders/schema";
 export type PreparedOrderLine = {
   key: string;
   type: "BOWL" | "REVUELTO" | "MERCHANDISE";
+  menuCategory?: "REVUELTO" | "REVUELTITO" | "SANGUCHITO" | "BEBIDA";
   sourceId: string;
   name: string;
   variant: string | null;
@@ -38,13 +39,21 @@ export function normalizeWhatsAppNumber(value: string) {
 }
 
 export function buildOrderMessage(lines: readonly PreparedOrderLine[], totalCents: number, paymentMethod: OrderPaymentMethod) {
-  const food = lines.filter((line) => line.type === "BOWL" || line.type === "REVUELTO");
+  const food = lines.filter((line) => (line.type === "BOWL" || line.type === "REVUELTO") && line.menuCategory !== "BEBIDA");
+  const drinks = lines.filter((line) => line.menuCategory === "BEBIDA");
   const merchandise = lines.filter((line) => line.type === "MERCHANDISE");
   const sections: string[] = ["¡Hola! 👋 Quiero hacer este pedido:"];
 
   if (food.length > 0) {
     sections.push("", "🍳 COMIDA");
     for (const line of food) {
+      sections.push(`• ${line.quantity} × ${line.name}${line.variant ? ` — ${line.variant}` : ""} — ${formatOrderMoney(line.subtotalCents)}`);
+    }
+  }
+
+  if (drinks.length > 0) {
+    sections.push("", "🥤 BEBIDAS");
+    for (const line of drinks) {
       sections.push(`• ${line.quantity} × ${line.name}${line.variant ? ` — ${line.variant}` : ""} — ${formatOrderMoney(line.subtotalCents)}`);
     }
   }

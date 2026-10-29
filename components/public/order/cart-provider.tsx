@@ -42,6 +42,9 @@ export type PublicOrderProduct = {
   name: string;
   variant: string | null;
   unitPriceCents: number;
+  comboPriceCents?: number | null;
+  ingredientNames?: Array<{ id: string; name: string }>;
+  choiceGroups?: Array<{ id: string; label: string; options: Array<{ id: string; name: string }> }>;
   imageUrl: string | null;
 };
 
@@ -132,7 +135,17 @@ export function PublicOrderCartProvider({
   const catalogProductMap = useMemo(() => new Map(products.map((product) => [product.key, product])), [products]);
   const productForItem = useCallback((item: CartItem) => {
     const catalogKey = item.type === "REVUELTO" ? `REVUELTO:${item.productId}` : getCartItemKey(item);
-    return catalogProductMap.get(catalogKey);
+    const product = catalogProductMap.get(catalogKey);
+    if (!product || item.type !== "REVUELTO") return product;
+    const variantParts = [
+      item.comboDrink === "COFFEE" ? "Con café" : item.comboDrink === "WATER" ? "Con agua" : null,
+      item.excludedIngredientIds.length ? `Sin ${item.excludedIngredientIds.map((id) => product.ingredientNames?.find((ingredient) => ingredient.id === id)?.name ?? "ingrediente").join(", ")}` : null,
+      ...item.choices.map((choice) => {
+        const group = product.choiceGroups?.find((candidate) => candidate.id === choice.groupId);
+        return group && choice.ingredientIds.length ? `${group.label}: ${choice.ingredientIds.map((id) => group.options.find((option) => option.id === id)?.name ?? "opción").join(", ")}` : null;
+      }),
+    ].filter((value): value is string => Boolean(value));
+    return { ...product, unitPriceCents: item.comboDrink ? product.comboPriceCents ?? product.unitPriceCents : product.unitPriceCents, variant: variantParts.join(" · ") || null };
   }, [catalogProductMap]);
   const productMap = useMemo(() => new Map(items.flatMap((item) => {
     const product = productForItem(item);

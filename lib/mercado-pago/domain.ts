@@ -15,7 +15,7 @@ export function canonicalCheckoutRequest(input: PrepareOrderInput) {
     .map((item) => item.type === "BOWL"
       ? { type: item.type, productId: item.productId, size: item.size, quantity: item.quantity }
       : item.type === "REVUELTO"
-        ? { type: item.type, productId: item.productId, excludedIngredientIds: [...item.excludedIngredientIds].sort(), choices: [...item.choices].sort((left, right) => left.groupId.localeCompare(right.groupId)), quantity: item.quantity }
+        ? { type: item.type, productId: item.productId, excludedIngredientIds: [...item.excludedIngredientIds].sort(), choices: [...item.choices].sort((left, right) => left.groupId.localeCompare(right.groupId)), comboDrink: item.comboDrink ?? null, quantity: item.quantity }
         : { type: item.type, productId: item.productId, quantity: item.quantity })
     .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
   return JSON.stringify({ branchId: input.branchId, paymentMethod: input.paymentMethod, items });

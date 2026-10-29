@@ -118,6 +118,28 @@ test("valida en servidor exclusiones removibles y elecciones del Revuelto", () =
   );
 });
 
+test("el combo de Revueltito conserva bebida y precio del servidor", () => {
+  const product = { ...catalog().revueltos![0], menuCategory: "REVUELTITO" as const, price: "7000.00", comboPrice: "9000.00", choiceGroups: [] };
+  const orderCatalog = catalog({ revueltos: [product] });
+  const solo = { ...revuelto, choices: [], excludedIngredientIds: [], quantity: 1 };
+  const withCoffee = { ...solo, comboDrink: "COFFEE" as const };
+  const prepared = prepareOrderFromCatalog(input([solo, withCoffee]), orderCatalog);
+  assert.equal(prepared.totalCents, 1_600_000);
+  assert.match(prepared.message, /Con café/);
+  assert.equal(addCartItem(addCartItem([], solo), withCoffee).length, 2);
+  expectOrderError(() => prepareOrderFromCatalog(input([withCoffee]), catalog()), "ITEM_UNAVAILABLE");
+});
+
+test("una bebida sin ingredientes se puede pedir y no admite exclusiones inventadas", () => {
+  const product = { ...catalog().revueltos![0], menuCategory: "BEBIDA" as const, price: "3000.00", recipeIngredients: [], choiceGroups: [] };
+  const orderCatalog = catalog({ revueltos: [product] });
+  const beverage = { ...revuelto, excludedIngredientIds: [], choices: [], quantity: 1 };
+  const prepared = prepareOrderFromCatalog(input([beverage]), orderCatalog);
+  assert.equal(prepared.totalCents, 300_000);
+  assert.match(prepared.message, /BEBIDAS/);
+  expectOrderError(() => prepareOrderFromCatalog(input([{ ...beverage, excludedIngredientIds: [removableIngredientId] }]), orderCatalog), "ITEM_UNAVAILABLE");
+});
+
 test("los contadores de SMALL, LARGE y merchandising permanecen independientes", () => {
   const items = [
     { ...small, quantity: 2 },

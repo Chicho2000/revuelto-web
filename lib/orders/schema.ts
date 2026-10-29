@@ -35,6 +35,7 @@ export const revueltoCartItemSchema = z
     type: z.literal("REVUELTO"),
     productId: z.string().uuid(),
     excludedIngredientIds: ingredientIdsSchema,
+    comboDrink: z.enum(["COFFEE", "WATER"]).nullable().optional(),
     choices: z.array(z.object({
       groupId: z.string().uuid(),
       ingredientIds: ingredientIdsSchema,
@@ -107,7 +108,7 @@ export function getCartItemKey(item: CartItem | CartItemInput) {
     .sort((left, right) => left.groupId.localeCompare(right.groupId))
     .map((choice) => `${choice.groupId}=${[...choice.ingredientIds].sort().join(",")}`)
     .join(";");
-  return `REVUELTO:${item.productId}:excluded=${excluded}:choices=${choices}`;
+  return `REVUELTO:${item.productId}:excluded=${excluded}:choices=${choices}:combo=${item.comboDrink ?? "SOLO"}`;
 }
 
 export function getTotalCartUnits(items: readonly CartItem[]) {
