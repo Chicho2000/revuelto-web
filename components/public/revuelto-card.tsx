@@ -26,7 +26,7 @@ function initialChoices(revuelto: PublicRevuelto) {
   return Object.fromEntries(revuelto.choiceGroups.map((group) => [group.id, []]));
 }
 
-export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; index: number }) {
+export function RevueltoCard({ revuelto }: { revuelto: PublicRevuelto }) {
   const cart = usePublicOrderCart();
   const [open, setOpen] = useState(false);
   const [includedIngredients, setIncludedIngredients] = useState(() => new Set(revuelto.recipeIngredients.map((item) => item.ingredientId)));
@@ -96,9 +96,8 @@ export function RevueltoCard({ revuelto, index }: { revuelto: PublicRevuelto; in
 
   return (
     <article className="public-bowl-card public-revuelto-card" data-reveal>
-      <span className="public-bowl-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
       <button type="button" className="public-revuelto-open" onClick={openDialog} aria-label={`Ver ${revuelto.name}`}>
-        <div className="public-bowl-image">{revuelto.imageUrl ? <Image src={revuelto.imageUrl} alt={revuelto.name} fill sizes="(max-width: 719px) 100vw, (max-width: 1099px) 50vw, 33vw" /> : <p>Foto próximamente</p>}</div>
+        <div className="public-bowl-image">{revuelto.imageUrl ? <Image src={revuelto.imageUrl} alt={revuelto.name} fill sizes="(max-width: 1060px) 50vw, 33vw" /> : <p>Foto próximamente</p>}</div>
         <div className="public-bowl-body"><h3>{revuelto.name}</h3><p className="public-bowl-description">{revuelto.description}</p><strong className="public-revuelto-price">{revuelto.price === null ? "Precio próximamente" : currencyFormatter.format(revuelto.price)}</strong><span className="public-revuelto-open-label">{revuelto.kind === "CUSTOM" ? "Armá tu Revuelto" : "Ver y agregar"}</span></div>
       </button>
       {open && createPortal(<div className="public-revuelto-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>

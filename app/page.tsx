@@ -130,8 +130,8 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
                 {content.menuSectionDescription && <p>{content.menuSectionDescription}</p>}
               </div>
               <div className="public-bowl-grid">
-                {data.visibleRevueltos.map((revuelto, index) => (
-                  <RevueltoCard key={revuelto.id} revuelto={revuelto} index={index} />
+                {data.visibleRevueltos.map((revuelto) => (
+                  <RevueltoCard key={revuelto.id} revuelto={revuelto} />
                 ))}
               </div>
             </section>
@@ -139,17 +139,17 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
 
           {data.navigation.hasRevueltitos && <section id={PUBLIC_SECTION_IDS.revueltitos} className="public-section public-menu-section public-revueltitos-section">
             <div className="public-section-heading" data-reveal><h2>Revueltitos</h2><p>Con crackers y semillas. Solos o con café o agua.</p></div>
-            <div className="public-bowl-grid">{data.visibleRevueltitos.map((item, index) => <RevueltoCard key={item.id} revuelto={item} index={index} />)}</div>
+            <div className="public-bowl-grid">{data.visibleRevueltitos.map((item) => <RevueltoCard key={item.id} revuelto={item} />)}</div>
           </section>}
 
           {data.navigation.hasSanguchitos && <section id={PUBLIC_SECTION_IDS.sanguchitos} className="public-section public-menu-section public-sanguchitos-section">
             <div className="public-section-heading" data-reveal><h2>Sanguchitos</h2></div>
-            <div className="public-bowl-grid">{data.visibleSanguchitos.map((item, index) => <RevueltoCard key={item.id} revuelto={item} index={index} />)}</div>
+            <div className="public-bowl-grid">{data.visibleSanguchitos.map((item) => <RevueltoCard key={item.id} revuelto={item} />)}</div>
           </section>}
 
           {data.navigation.hasBebidas && <section id={PUBLIC_SECTION_IDS.bebidas} className="public-section public-menu-section public-bebidas-section">
             <div className="public-section-heading" data-reveal><h2>Bebidas</h2></div>
-            <div className="public-bowl-grid">{data.visibleBebidas.map((item, index) => <RevueltoCard key={item.id} revuelto={item} index={index} />)}</div>
+            <div className="public-bowl-grid">{data.visibleBebidas.map((item) => <RevueltoCard key={item.id} revuelto={item} />)}</div>
           </section>}
 
           {data.navigation.hasPromotions && (
@@ -180,7 +180,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
                   <article className="public-merchandise-card" key={item.id} data-reveal>
                     <div className="public-merchandise-image">
                       {item.imageUrl ? (
-                        <Image src={item.imageUrl} alt={item.name} fill sizes="(max-width: 719px) 100vw, (max-width: 1099px) 50vw, 33vw" />
+                        <Image src={item.imageUrl} alt={item.name} fill sizes="(max-width: 1060px) 50vw, 33vw" />
                       ) : (
                         <span>Imagen no disponible</span>
                       )}
