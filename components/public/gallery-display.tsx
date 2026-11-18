@@ -20,41 +20,79 @@ type GalleryDisplayItem = {
   externalUrl: string | null;
 };
 
-function GalleryCard({ item, isActive = true }: { item: GalleryDisplayItem; isActive?: boolean }) {
+function GalleryCard({ item, isActive = true, informationOpen, onToggleInformation }: {
+  item: GalleryDisplayItem;
+  isActive?: boolean;
+  informationOpen: boolean;
+  onToggleInformation: () => void;
+}) {
+  const [aspectRatio, setAspectRatio] = useState(4 / 3);
   const linkProps = getSafeGalleryLinkProps(item);
-  const card = (
-    <article className="gallery-card">
-      <div className="gallery-image">
+  const hasInformation = Boolean(item.title || item.description);
+  const image = (
+    <div className="gallery-image">
         {item.imageUrl ? (
-          <Image src={item.imageUrl} alt={item.title ?? "Galería de Revuelto"} width={800} height={600} sizes="(max-width: 560px) 100vw, (max-width: 900px) 50vw, 768px" />
+          <Image
+            src={item.imageUrl}
+            alt={item.title ?? "Galería de Revuelto"}
+            width={800}
+            height={600}
+            sizes="(max-width: 560px) 100vw, (max-width: 900px) 50vw, 768px"
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (naturalWidth && naturalHeight) setAspectRatio(naturalWidth / naturalHeight);
+            }}
+          />
         ) : <span>Imagen no disponible</span>}
         {item.type === "INSTAGRAM_VIDEO" && <span className="gallery-play-indicator" aria-hidden="true">▶</span>}
-      </div>
-      {(item.title || item.description) && (
-        <div className="gallery-copy">
+    </div>
+  );
+
+  return (
+    <article
+      className={`gallery-card${informationOpen && isActive ? " is-info-open" : ""}`}
+      style={{ width: `min(100%, ${75 * aspectRatio}svh)` }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && informationOpen) onToggleInformation();
+      }}
+    >
+      {linkProps ? (
+        <a
+          className="gallery-link"
+          {...linkProps}
+          tabIndex={isActive ? undefined : -1}
+          aria-label={item.type === "INSTAGRAM_VIDEO" ? `Abrir ${item.title || "video"} en Instagram` : undefined}
+        >
+          {image}
+        </a>
+      ) : image}
+      {hasInformation && (
+        <>
+          <button
+            type="button"
+            className="gallery-info-toggle"
+            aria-expanded={informationOpen && isActive}
+            aria-controls={`gallery-information-${item.id}`}
+            tabIndex={isActive ? undefined : -1}
+            onClick={onToggleInformation}
+          >
+            {informationOpen && isActive ? "Ocultar información" : "Ver información"}
+          </button>
+          <div className="gallery-copy" id={`gallery-information-${item.id}`}>
           {item.title && <h3>{item.title}</h3>}
           {item.description && <p>{item.description}</p>}
-        </div>
+          </div>
+        </>
       )}
     </article>
   );
-
-  return linkProps ? (
-    <a
-      className="gallery-link"
-      {...linkProps}
-      tabIndex={isActive ? undefined : -1}
-      aria-label={item.type === "INSTAGRAM_VIDEO" ? `Abrir ${item.title || "video"} en Instagram` : undefined}
-    >
-      {card}
-    </a>
-  ) : card;
 }
 
 export function GalleryDisplay({ items }: { items: GalleryDisplayItem[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const isCarousel = shouldUseGalleryCarousel(items.length);
 
   useEffect(() => {
@@ -66,15 +104,25 @@ export function GalleryDisplay({ items }: { items: GalleryDisplayItem[] }) {
   }, []);
 
   useEffect(() => {
-    if (!isCarousel || isPaused || prefersReducedMotion) return;
+    if (!isCarousel || isPaused || prefersReducedMotion || expandedItemId === items[currentIndex]?.id) return;
     const interval = window.setInterval(() => {
       setCurrentIndex((index) => getNextGallerySlide(index, items.length));
     }, AUTOPLAY_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [isCarousel, isPaused, items.length, prefersReducedMotion]);
+  }, [isCarousel, isPaused, items, currentIndex, prefersReducedMotion, expandedItemId]);
+
+  const renderCard = (item: GalleryDisplayItem, isActive = true) => (
+    <GalleryCard
+      key={item.id}
+      item={item}
+      isActive={isActive}
+      informationOpen={expandedItemId === item.id}
+      onToggleInformation={() => setExpandedItemId((current) => current === item.id ? null : item.id)}
+    />
+  );
 
   if (!isCarousel) {
-    return <div className="gallery-grid">{items.map((item) => <GalleryCard item={item} key={item.id} />)}</div>;
+    return <div className="gallery-grid">{items.map((item) => renderCard(item))}</div>;
   }
 
   const goTo = (index: number) => setCurrentIndex(index);
@@ -98,7 +146,7 @@ export function GalleryDisplay({ items }: { items: GalleryDisplayItem[] }) {
         <div className="gallery-carousel-track" style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
           {items.map((item, index) => (
             <div className="gallery-carousel-slide" key={item.id} aria-hidden={index !== currentIndex}>
-              <GalleryCard item={item} isActive={index === currentIndex} />
+              {renderCard(item, index === currentIndex)}
             </div>
           ))}
         </div>
