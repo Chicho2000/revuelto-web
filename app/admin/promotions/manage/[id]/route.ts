@@ -1,3 +1,4 @@
+import { confirmedDeleteResponse } from "@/lib/admin/delete-route";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -30,4 +31,11 @@ export async function PUT(
   } catch (error) {
     return mutationErrorResponse("promotions.update", error, getPromotionMutationError);
   }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
+  const { id } = await params;
+  return confirmedDeleteResponse(request, id, "PROMOTION");
 }

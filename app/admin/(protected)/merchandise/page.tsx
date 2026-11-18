@@ -1,3 +1,4 @@
+import { DeleteEntityButton } from "@/components/admin/delete-entity-button";
 import Image from "next/image";
 import Link from "next/link";
 import type { MerchandiseItem } from "@/generated/prisma/client";
@@ -41,6 +42,7 @@ export default async function AdminMerchandisePage({ searchParams }: { searchPar
       </div>
 
       {params.message === "created" && <p className="admin-success">El producto se creó correctamente.</p>}
+      {params.message === "deleted" && <p className="admin-success">El elemento se borr? definitivamente.</p>}
       {params.message === "updated" && <p className="admin-success">Los cambios se guardaron.</p>}
       {params.message === "activated" && <p className="admin-success">El producto quedó activo.</p>}
       {params.message === "deactivated" && <p className="admin-success">El producto quedó inactivo.</p>}
@@ -76,6 +78,13 @@ export default async function AdminMerchandisePage({ searchParams }: { searchPar
                   </dl>
                   <div className="admin-bowl-actions">
                     <Link href={`/admin/merchandise/${item.id}/edit`}>Editar</Link>
+                    <DeleteEntityButton
+                      endpoint={`/admin/merchandise/manage/${item.id}`}
+                      entityLabel="Merch"
+                      entityName={item.name}
+                      isActive={item.isActive}
+                      redirectTo={"/admin/merchandise"}
+                    />
                     <MerchandiseStatusButton itemId={item.id} isActive={item.isActive} />
                   </div>
                 </div>

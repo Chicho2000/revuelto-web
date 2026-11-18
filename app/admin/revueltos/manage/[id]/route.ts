@@ -1,3 +1,4 @@
+import { confirmedDeleteResponse } from "@/lib/admin/delete-route";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { updateRevuelto } from "@/lib/revueltos/service";
@@ -22,4 +23,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error) {
     return mutationErrorResponse("revueltos.update", error, getRevueltoMutationError);
   }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authorization = await getOwnerRouteAuthorization();
+  if (authorization.response) return authorization.response;
+  const { id } = await params;
+  return confirmedDeleteResponse(request, id, "BOWL");
 }

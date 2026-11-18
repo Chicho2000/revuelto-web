@@ -1,4 +1,5 @@
 import "server-only";
+import { deleteCatalogEntity } from "@/lib/admin/deletion-service";
 import { randomUUID } from "node:crypto";
 import { BowlSizeType, TemporaryImageTarget } from "@/generated/prisma/client";
 import type { BowlInput } from "@/lib/bowls/schema";
@@ -141,24 +142,7 @@ export async function setBowlActive(bowlId: string, isActive: boolean) {
 }
 
 export async function deleteBowl(bowlId: string, confirmation: string) {
-  const prisma = getPrisma();
-  const bowl = await prisma.bowl.findUnique({
-    where: { id: bowlId },
-    select: { id: true, name: true, imagePath: true },
-  });
-
-  if (!bowl) throw Object.assign(new Error("Bowl no encontrado."), { code: "P2025" });
-  if (confirmation !== bowl.name) {
-    throw Object.assign(new Error("La confirmación no coincide."), { code: "CONFIRMATION_MISMATCH" });
-  }
-
-  await prisma.bowl.delete({ where: { id: bowl.id } });
-
-  if (bowl.imagePath) {
-    await deleteFinalImage(bowl.imagePath).catch((error) => {
-      reportUnexpectedServerError("bowls.delete-final-image", error);
-    });
-  }
+  return deleteCatalogEntity("BOWL", bowlId, confirmation);
 }
 
 export async function cancelTemporaryBowlImage(ownerId: string, imageId: string) {

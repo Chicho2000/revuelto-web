@@ -46,7 +46,7 @@ de imágenes y CRUD de bowls, sucursales, promociones, contenido general, galer�
 | Storage y procesamiento de imágenes | Infraestructura implementada; buckets revisados y corregidos a 5 MB con JPEG/PNG/WebP. |
 | CRUD de bowls | Implementado con dos tamaños, estado, imágenes seguras y borrado definitivo confirmado por nombre. |
 | CRUD de sucursales y horarios | Implementado con siete días, estado, teléfono opcional y borrado definitivo confirmado por nombre. |
-| CRUD de promociones | Implementado con fechas opcionales, estado e imágenes seguras; sin eliminación definitiva. |
+| CRUD de promociones | Implementado con fechas opcionales, estado, imágenes seguras y borrado definitivo de elementos inactivos con doble confirmación. |
 | CRUD de contenido | Implementado con singleton estructurado, contacto, redes, footer y SEO. |
 | Galería multimedia | Implementada con fotos y miniaturas enlazadas a Instagram; sin video alojado ni embeds. |
 | Merchandising | Catálogo administrable integrado al carrito; sin stock, variantes ni checkout individual. |
@@ -162,11 +162,11 @@ Browser
 | `POST /admin/images/discard` | Descarta un temporal al cancelar. |
 | `POST /admin/bowls/manage` | Crea Bowl y SMALL/LARGE en una transacción. |
 | `PUT /admin/bowls/manage/[id]` | Edita Bowl y hace upsert controlado de tamaños. |
-| `DELETE /admin/bowls/manage/[id]` | Borra un bowl después de validar en servidor el nombre exacto. |
+| `DELETE /admin/bowls/manage/[id]` | Borra un bowl oculto en ambas cartas después de validar en servidor el nombre exacto. |
 | `PATCH /admin/bowls/manage/[id]/status` | Activa o desactiva un bowl. |
 | `POST /admin/branches/manage` | Crea Branch y siete BusinessHour de forma atómica. |
 | `PUT /admin/branches/manage/[id]` | Edita Branch y hace upsert de los siete días. |
-| `DELETE /admin/branches/manage/[id]` | Borra una sucursal después de validar en servidor el nombre exacto. |
+| `DELETE /admin/branches/manage/[id]` | Borra una sucursal inactiva y sin pedidos vinculados después de validar el nombre exacto. |
 | `PATCH /admin/branches/manage/[id]/status` | Activa o desactiva una sucursal. |
 | `POST /admin/promotions/manage` | Crea una promoción y confirma su imagen opcional. |
 | `PUT /admin/promotions/manage/[id]` | Edita datos, fechas y reemplazo/quita de imagen. |
@@ -250,7 +250,9 @@ Reglas de bowls: cada bowl tendrá exactamente SMALL (25 oz) y LARGE (35 oz)
 en cada creación o edición mediante Zod y una transacción Prisma.
 La base ya evita repetir un tamaño por bowl.
 
-El borrado de bowl o sucursal es definitivo: la interfaz exige escribir exactamente el nombre y el Route Handler/servicio vuelve a comprobarlo antes de borrar. La cascada de Prisma elimina `BowlSize` al borrar su `Bowl` y `BusinessHour` al borrar su `Branch`.
+El borrado definitivo está disponible en los listados de productos de la carta, ingredientes, promociones, galería, Merch y sucursales solo para elementos inactivos. La interfaz exige escribir exactamente el nombre mostrado y aceptar una confirmación final. Todos los handlers DELETE comprueban OWNER y utilizan `lib/admin/delete-route.ts` y `deletion-service.ts` para validar el contrato, el nombre vigente y el estado. La transacción serializable y el filtro por `updatedAt` impiden borrar un elemento editado o reactivado durante la confirmación. Los ingredientes usados en recetas u opciones y las sucursales con pedidos vinculados responden 409. Las relaciones propias se borran por cascada; los snapshots históricos se conservan. Storage se limpia después del commit y sus fallos se reportan sin revertir el registro ya eliminado.
+
+Además de las rutas históricas anteriores, admiten DELETE `/admin/revueltos/manage/[id]`, `/admin/ingredients/manage/[id]`, `/admin/promotions/manage/[id]`, `/admin/content/gallery/manage/[id]` y `/admin/merchandise/manage/[id]`. En Galería, un elemento sin título se confirma escribiendo `Sin título`. Los productos de la carta deben tener deshabilitadas tanto la visibilidad nueva como la disponibilidad histórica.
 
 Reglas de sucursales: Zod exige exactamente MONDAY–SUNDAY sin duplicados. Prisma
 crea o actualiza Branch y los siete BusinessHour mediante nested writes atómicos,
@@ -278,7 +280,7 @@ Cada alta o edición de galería se confirma solo con el botón Guardar de su pr
 | `20260804000200_add_site_content_and_gallery` | Aplicada | Amplía `SiteContent`, crea el singleton y `GalleryItem`, agrega el destino de imagen y habilita RLS. |
 | `20260819000100_add_merchandise` | Aplicada | Agrega `MERCHANDISE` al destino temporal, crea `MerchandiseItem`, su índice, check de precio positivo y RLS sin políticas. |
 | `20260822000100_add_public_ordering` | Aplicada | Agrega cuatro flags a `SiteContent` y crea `PublicOrderRateLimit` con RLS sin políticas. |
-| `20260910000100_add_mercado_pago_checkout` | Aplicada | Crea enums de método/estado, `CheckoutOrder`, checks de total/ARS, UNIQUE, índices, FK a Branch con `ON DELETE SET NULL` y RLS sin políticas. La relación es obligatoria al crear desde la aplicación, pero no bloquea el borrado posterior de una sucursal; el snapshot conserva sus datos históricos. |
+| `20260910000100_add_mercado_pago_checkout` | Aplicada | Crea enums de método/estado, `CheckoutOrder`, checks de total/ARS, UNIQUE, índices, FK a Branch con `ON DELETE SET NULL` y RLS sin políticas. La aplicación bloquea el borrado de sucursales con pedidos vinculados aunque la FK histórica permita SET NULL; el snapshot conserva sus datos históricos. |
 
 El 2026-10-18 `npx prisma migrate status` encontró nueve migraciones y reportó
 `Database schema is up to date!`. La consulta realizada durante esta

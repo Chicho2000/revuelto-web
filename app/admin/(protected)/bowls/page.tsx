@@ -74,6 +74,7 @@ export default async function AdminBowlsPage({
                     <Link href={`/admin/bowls/${bowl.id}/edit`}>Editar</Link>
                     <BowlStatusButton bowlId={bowl.id} isActive={bowl.isAvailable} />
                     <DeleteEntityButton
+                  isActive={bowl.isAvailable || bowl.isVisibleInNewMenu}
                       endpoint={`/admin/bowls/manage/${bowl.id}`}
                       entityLabel="bowl"
                       entityName={bowl.name}

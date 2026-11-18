@@ -1,3 +1,4 @@
+import { DeleteEntityButton } from "@/components/admin/delete-entity-button";
 import Image from "next/image";
 import Link from "next/link";
 import type { GalleryItem } from "@/generated/prisma/client";
@@ -41,6 +42,7 @@ export default async function AdminGalleryPage({ searchParams }: { searchParams:
         <Link className="admin-primary-link admin-back-link" href="/admin/content">← Volver a contenido general</Link>
       </div>
       {params.message === "created" && <p className="admin-success">El elemento se creó correctamente.</p>}
+      {params.message === "deleted" && <p className="admin-success">El elemento se borr? definitivamente.</p>}
       {params.message === "updated" && <p className="admin-success">Los cambios se guardaron.</p>}
       {params.message === "activated" && <p className="admin-success">El elemento quedó activo.</p>}
       {params.message === "deactivated" && <p className="admin-success">El elemento quedó inactivo.</p>}
@@ -77,6 +79,13 @@ export default async function AdminGalleryPage({ searchParams }: { searchParams:
                   </dl>
                   <div className="admin-bowl-actions">
                     <Link href={`/admin/content/gallery/${item.id}/edit`}>Editar</Link>
+                    <DeleteEntityButton
+                      endpoint={`/admin/content/gallery/manage/${item.id}`}
+                      entityLabel="galer?a"
+                      entityName={item.title || "Sin t?tulo"}
+                      isActive={item.isActive}
+                      redirectTo={"/admin/content/gallery"}
+                    />
                     <GalleryStatusButton galleryItemId={item.id} isActive={item.isActive} />
                   </div>
                 </div>

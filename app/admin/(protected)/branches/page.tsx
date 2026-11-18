@@ -70,6 +70,7 @@ export default async function AdminBranchesPage({
                 <Link href={`/admin/branches/${branch.id}/edit`}>Editar</Link>
                 <BranchStatusButton branchId={branch.id} isActive={branch.isActive} />
                 <DeleteEntityButton
+                  isActive={branch.isActive}
                   endpoint={`/admin/branches/manage/${branch.id}`}
                   entityLabel="sucursal"
                   entityName={branch.name}

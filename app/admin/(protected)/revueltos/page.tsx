@@ -1,3 +1,4 @@
+import { DeleteEntityButton } from "@/components/admin/delete-entity-button";
 import Image from "next/image";
 import Link from "next/link";
 import { AdminConfigurationState } from "@/components/admin/configuration-state";
@@ -28,6 +29,7 @@ export default async function AdminRevueltosPage({ searchParams }: { searchParam
         <Link className="admin-primary-link" href={`/admin/revueltos/new?category=${category}`}>Nuevo {menuCategories[category].singular}</Link>
       </div>
       {message === "created" && <p className="admin-success">{menuCategories[category].singular} creado correctamente.</p>}
+      {message === "deleted" && <p className="admin-success">El elemento se borr? definitivamente.</p>}
       {message === "updated" && <p className="admin-success">Los cambios se guardaron.</p>}
 
       {revueltos.length === 0 ? (
@@ -60,6 +62,13 @@ export default async function AdminRevueltosPage({ searchParams }: { searchParam
                 </div>
                 <div className="admin-bowl-actions">
                   <Link href={`/admin/revueltos/${revuelto.id}/edit`}>Editar</Link>
+                    <DeleteEntityButton
+                      endpoint={`/admin/revueltos/manage/${revuelto.id}`}
+                      entityLabel="producto"
+                      entityName={revuelto.name}
+                      isActive={revuelto.isVisibleInNewMenu || revuelto.isAvailable}
+                      redirectTo={`/admin/revueltos?category=${category}`}
+                    />
                 </div>
               </div>
             </article>

@@ -1,4 +1,5 @@
 import "server-only";
+import { deleteCatalogEntity } from "@/lib/admin/deletion-service";
 import { DayOfWeek } from "@/generated/prisma/client";
 import type { BranchInput } from "@/lib/branches/schema";
 import { branchValues, scheduleValues } from "@/lib/branches/schema";
@@ -81,16 +82,5 @@ export async function setBranchActive(branchId: string, isActive: boolean) {
 }
 
 export async function deleteBranch(branchId: string, confirmation: string) {
-  const prisma = getPrisma();
-  const branch = await prisma.branch.findUnique({
-    where: { id: branchId },
-    select: { id: true, name: true },
-  });
-
-  if (!branch) throw Object.assign(new Error("Sucursal no encontrada."), { code: "P2025" });
-  if (confirmation !== branch.name) {
-    throw Object.assign(new Error("La confirmación no coincide."), { code: "CONFIRMATION_MISMATCH" });
-  }
-
-  await prisma.branch.delete({ where: { id: branch.id } });
+  return deleteCatalogEntity("BRANCH", branchId, confirmation);
 }

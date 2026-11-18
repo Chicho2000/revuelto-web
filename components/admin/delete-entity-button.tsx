@@ -8,6 +8,7 @@ type DeleteEntityButtonProps = {
   entityLabel: string;
   endpoint: string;
   redirectTo: string;
+  isActive: boolean;
 };
 
 export function DeleteEntityButton({
@@ -15,6 +16,7 @@ export function DeleteEntityButton({
   entityLabel,
   endpoint,
   redirectTo,
+  isActive,
 }: DeleteEntityButtonProps) {
   const router = useRouter();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -32,6 +34,7 @@ export function DeleteEntityButton({
 
   function remove() {
     if (!isExactConfirmation || isPending) return;
+    if (!window.confirm(`¿Borrar definitivamente «${entityName}»? Esta acción no se puede deshacer.`)) return;
 
     setError(null);
     startTransition(async () => {
@@ -53,13 +56,15 @@ export function DeleteEntityButton({
           return;
         }
 
-        router.push(`${redirectTo}?message=deleted`);
+        router.push(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}message=deleted`);
         router.refresh();
       } catch {
         setError("No se pudo conectar para borrar. Intentá nuevamente.");
       }
     });
   }
+
+  if (isActive) return null;
 
   if (!isConfirming) {
     return (
@@ -72,7 +77,7 @@ export function DeleteEntityButton({
   return (
     <div className="admin-delete-confirmation" aria-live="polite">
       <p>
-        Para borrar definitivamente este {entityLabel}, escribí exactamente:
+        Este borrado es definitivo y no se puede deshacer. Para confirmar el elemento de {entityLabel}, escribí exactamente:
       </p>
       <strong>{entityName}</strong>
       <label>

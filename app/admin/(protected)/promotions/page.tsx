@@ -1,3 +1,4 @@
+import { DeleteEntityButton } from "@/components/admin/delete-entity-button";
 import Image from "next/image";
 import Link from "next/link";
 import { AdminConfigurationState } from "@/components/admin/configuration-state";
@@ -31,6 +32,7 @@ export default async function AdminPromotionsPage({
       </div>
 
       {message === "created" && <p className="admin-success">La promoción se creó correctamente.</p>}
+      {message === "deleted" && <p className="admin-success">El elemento se borr? definitivamente.</p>}
       {message === "updated" && <p className="admin-success">Los cambios se guardaron.</p>}
       {message === "activated" && <p className="admin-success">La promoción quedó activa.</p>}
       {message === "deactivated" && <p className="admin-success">La promoción quedó inactiva y ya no se muestra públicamente.</p>}
@@ -64,6 +66,13 @@ export default async function AdminPromotionsPage({
                   <p><strong>Horario:</strong> {formatPromotionWeeklySchedule(promotion)}</p>
                   <div className="admin-bowl-actions">
                     <Link href={`/admin/promotions/${promotion.id}/edit`}>Editar</Link>
+                    <DeleteEntityButton
+                      endpoint={`/admin/promotions/manage/${promotion.id}`}
+                      entityLabel="promociones"
+                      entityName={promotion.title}
+                      isActive={promotion.isActive}
+                      redirectTo={"/admin/promotions"}
+                    />
                     <PromotionStatusButton promotionId={promotion.id} isActive={promotion.isActive} />
                   </div>
                 </div>

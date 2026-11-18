@@ -1,3 +1,4 @@
+import { DeleteEntityButton } from "@/components/admin/delete-entity-button";
 import Link from "next/link";
 import type { Ingredient } from "@/generated/prisma/client";
 import { AdminConfigurationState } from "@/components/admin/configuration-state";
@@ -31,6 +32,7 @@ export default async function AdminIngredientsPage({ searchParams }: { searchPar
         {!migrationPending && <Link className="admin-primary-link" href="/admin/ingredients/new">Nuevo ingrediente</Link>}
       </div>
       {params.message === "created" && <p className="admin-success">El ingrediente se creó correctamente.</p>}
+      {params.message === "deleted" && <p className="admin-success">El elemento se borr? definitivamente.</p>}
       {params.message === "updated" && <p className="admin-success">Los cambios se guardaron.</p>}
       {params.message === "activated" && <p className="admin-success">El ingrediente quedó activo.</p>}
       {params.message === "deactivated" && <p className="admin-success">El ingrediente quedó inactivo.</p>}
@@ -61,6 +63,13 @@ export default async function AdminIngredientsPage({ searchParams }: { searchPar
                   <p>{category?.label ?? item.category}</p>
                   <div className="admin-bowl-actions">
                     <Link href={`/admin/ingredients/${item.id}/edit`}>Editar</Link>
+                    <DeleteEntityButton
+                      endpoint={`/admin/ingredients/manage/${item.id}`}
+                      entityLabel="ingredientes"
+                      entityName={item.name}
+                      isActive={item.isActive}
+                      redirectTo={"/admin/ingredients"}
+                    />
                     <IngredientStatusButton ingredientId={item.id} isActive={item.isActive} />
                   </div>
                 </div>
