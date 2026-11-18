@@ -26,7 +26,7 @@ function GalleryCard({ item, isActive = true }: { item: GalleryDisplayItem; isAc
     <article className="gallery-card">
       <div className="gallery-image">
         {item.imageUrl ? (
-          <Image src={item.imageUrl} alt={item.title ?? "Galería de Revuelto"} width={800} height={600} />
+          <Image src={item.imageUrl} alt={item.title ?? "Galería de Revuelto"} width={800} height={600} sizes="(max-width: 560px) 100vw, (max-width: 900px) 50vw, 768px" />
         ) : <span>Imagen no disponible</span>}
         {item.type === "INSTAGRAM_VIDEO" && <span className="gallery-play-indicator" aria-hidden="true">▶</span>}
       </div>

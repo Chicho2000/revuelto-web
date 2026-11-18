@@ -68,16 +68,17 @@ button, input, textarea, select { font: inherit; }
 .whatsapp-button { position: fixed; right: 1rem; bottom: 1rem; z-index: 10; border: 2px solid var(--revuelto-black); border-radius: 999px; padding: .8rem 1rem; background: var(--revuelto-green); font-weight: 800; text-decoration: none; }
 .gallery-link { display: block; color: inherit; text-decoration: none; }
 .gallery-card { height: 100%; overflow: hidden; border: 2px solid var(--revuelto-black); border-radius: 1.5rem; background: var(--revuelto-cream); }
-.gallery-image { position: relative; display: grid; min-height: 10rem; place-items: center; overflow: hidden; background: var(--revuelto-orange); }
-.gallery-image img { display: block; width: 100%; height: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.gallery-image { position: relative; display: grid; place-items: center; background: var(--revuelto-cream); }
+.gallery-image img { display: block; width: 100%; height: auto; max-height: 75svh; aspect-ratio: auto; object-fit: contain; object-position: center; }
 .gallery-copy { padding: .8rem 1rem; }
 .gallery-copy h3, .gallery-copy p { margin: 0; }
 .gallery-copy h3 + p { margin-top: .5rem; }
 .gallery-play-indicator, .admin-play-indicator { position: absolute; inset: 50% auto auto 50%; display: grid; width: 3.5rem; height: 3.5rem; place-items: center; transform: translate(-50%, -50%); border: 2px solid var(--revuelto-black); border-radius: 50%; background: var(--revuelto-yellow); font-size: 1.35rem; }
 .gallery-carousel { width: min(100%, 42rem); margin-inline: auto; }
 .gallery-carousel-viewport { overflow: hidden; border-radius: 1.5rem; }
-.gallery-carousel-track { display: flex; transition: transform .45s ease; }
+.gallery-carousel-track { display: flex; align-items: flex-start; transition: transform .45s ease; }
 .gallery-carousel-slide { flex: 0 0 100%; min-width: 0; }
+.gallery-carousel-slide[aria-hidden="true"] { height: 0; overflow: hidden; }
 .gallery-carousel-controls { display: flex; align-items: center; justify-content: center; gap: .8rem; margin-top: 1rem; }
 .gallery-carousel-button, .gallery-carousel-indicators button { border: 2px solid var(--revuelto-black); background: var(--revuelto-cream); color: var(--revuelto-black); cursor: pointer; }
 .gallery-carousel-button { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border-radius: 50%; font-size: 1.25rem; font-weight: 800; }
@@ -206,7 +207,7 @@ button, input, textarea, select { font: inherit; }
 .admin-gallery-list { display: grid; gap: 1rem; }
 .admin-gallery-card { display: grid; gap: 1rem; border-top: 2px solid var(--revuelto-black); padding-top: 1rem; }
 .admin-gallery-thumb { position: relative; display: grid; min-height: 10rem; place-items: center; overflow: hidden; border: 2px solid var(--revuelto-black); border-radius: 1rem; background: var(--revuelto-orange); }
-.admin-gallery-thumb img { width: 100%; height: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.admin-gallery-thumb img, .admin-gallery-form .admin-image-preview img { width: 100%; height: auto; max-height: 65svh; aspect-ratio: auto; object-fit: contain; object-position: center; }
 .admin-gallery-details { display: grid; gap: .4rem; margin: 1rem 0; }
 .admin-gallery-details div { display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: .5rem; }
 .admin-gallery-details dt { font-weight: 800; }
