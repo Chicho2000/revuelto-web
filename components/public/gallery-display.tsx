@@ -122,7 +122,7 @@ export function GalleryDisplay({ items }: { items: GalleryDisplayItem[] }) {
   );
 
   if (!isCarousel) {
-    return <div className="gallery-grid">{items.map((item) => renderCard(item))}</div>;
+    return <div className="gallery-single">{items.map((item) => renderCard(item))}</div>;
   }
 
   const goTo = (index: number) => setCurrentIndex(index);

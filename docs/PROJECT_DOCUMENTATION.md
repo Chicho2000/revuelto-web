@@ -266,7 +266,7 @@ Contenido general usa la clave única reservada `site-config` como singleton act
 
 Galería ordena por `sortOrder` ascendente, luego `createdAt` e `id`. `INSTAGRAM_VIDEO` exige HTTPS, hostname exacto `instagram.com`, `www.instagram.com` o `m.instagram.com`, sin credenciales ni puerto, y ruta de publicación/Reel `p`, `reel`, `reels` o `tv`; se eliminan query y fragmento al normalizar. La tarjeta pública abre el destino con `target="_blank"` y `rel="noopener noreferrer"`. No se cargan videos, embeds ni scripts externos.
 
-Cada alta o edición de galería se confirma solo con el botón Guardar de su propio formulario; no requiere guardar el contenido general. Hasta tres elementos públicos se muestran en grilla; desde cuatro se muestra un carrusel que avanza cada cinco segundos, se pausa al interactuar y ofrece anterior, siguiente e indicadores. Si la persona prefiere movimiento reducido, el avance automático queda desactivado.
+Cada alta o edición de galería se confirma solo con el botón Guardar de su propio formulario; no requiere guardar el contenido general. Un solo elemento público se muestra centrado; desde dos se muestra un carrusel que avanza cada cinco segundos, se pausa al interactuar y ofrece anterior, siguiente e indicadores. Si la persona prefiere movimiento reducido, el avance automático queda desactivado.
 
 ### Estado de migraciones
 

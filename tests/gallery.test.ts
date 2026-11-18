@@ -57,9 +57,14 @@ test("ordena por sortOrder, createdAt e id", () => {
   assert.deepEqual(sorted.map((item) => item.id), ["a", "c", "b"]);
 });
 
-test("usa carrusel automático desde el cuarto elemento y navega de forma circular", () => {
-  assert.equal(shouldUseGalleryCarousel(3), false);
+test("usa carrusel desde dos elementos y conserva la navegación circular", () => {
+  assert.equal(shouldUseGalleryCarousel(0), false);
+  assert.equal(shouldUseGalleryCarousel(1), false);
+  assert.equal(shouldUseGalleryCarousel(2), true);
+  assert.equal(shouldUseGalleryCarousel(3), true);
   assert.equal(shouldUseGalleryCarousel(4), true);
+  assert.equal(getNextGallerySlide(1, 2), 0);
+  assert.equal(getPreviousGallerySlide(0, 2), 1);
   assert.equal(getNextGallerySlide(3, 4), 0);
   assert.equal(getPreviousGallerySlide(0, 4), 3);
 });

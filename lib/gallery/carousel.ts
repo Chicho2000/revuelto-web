@@ -1,4 +1,4 @@
-export const GALLERY_CAROUSEL_MIN_ITEMS = 4;
+export const GALLERY_CAROUSEL_MIN_ITEMS = 2;
 
 export function shouldUseGalleryCarousel(itemCount: number) {
   return itemCount >= GALLERY_CAROUSEL_MIN_ITEMS;
