@@ -213,7 +213,7 @@ export function PublicOrderCartProvider({
     const availableSlots = Math.min(20 - existingQuantity, 50 - getTotalCartUnits(items));
     const quantityToAdd = Math.max(0, Math.min(safeQuantity, availableSlots));
     if (quantityToAdd === 0) {
-      announce("Alcanzaste el l�mite del pedido.");
+      announce("Alcanzaste el límite del pedido.");
       return;
     }
     setItems((current) => {

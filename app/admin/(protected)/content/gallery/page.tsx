@@ -81,8 +81,8 @@ export default async function AdminGalleryPage({ searchParams }: { searchParams:
                     <Link href={`/admin/content/gallery/${item.id}/edit`}>Editar</Link>
                     <DeleteEntityButton
                       endpoint={`/admin/content/gallery/manage/${item.id}`}
-                      entityLabel="galer?a"
-                      entityName={item.title || "Sin t?tulo"}
+                      entityLabel="galería"
+                      entityName={item.title || "Sin título"}
                       isActive={item.isActive}
                       redirectTo={"/admin/content/gallery"}
                     />
