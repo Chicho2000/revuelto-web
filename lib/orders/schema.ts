@@ -88,6 +88,17 @@ export const prepareOrderSchema = z
     branchId: z.string().uuid(),
     paymentMethod: orderPaymentMethodSchema,
     items: cartItemsSchema.min(1, "Agregá al menos un producto."),
+    fulfillment: z.discriminatedUnion("mode", [
+      z.object({ mode: z.literal("PICKUP") }).strict(),
+      z.object({
+        mode: z.literal("DELIVERY"),
+        zoneConfirmed: z.literal(true),
+        address: z.string().trim().min(5, "Ingresá calle y número para el envío.").max(300)
+          .refine((value) => !/[\u0000-\u001F\u007F]/.test(value), "Escribí la dirección en una sola línea."),
+        details: z.string().trim().max(300)
+          .refine((value) => !/[\u0000-\u001F\u007F]/.test(value), "Escribí las indicaciones en una sola línea.").optional(),
+      }).strict(),
+    ]).optional(),
   })
   .strict();
 
@@ -98,6 +109,7 @@ export type CartItemInput =
   | Omit<Extract<CartItem, { type: "MERCHANDISE" }>, "quantity">;
 export type CartStorage = z.infer<typeof cartStorageSchema>;
 export type PrepareOrderInput = z.infer<typeof prepareOrderSchema>;
+export type OrderFulfillment = NonNullable<PrepareOrderInput["fulfillment"]>;
 export type OrderPaymentMethod = z.infer<typeof orderPaymentMethodSchema>;
 
 export function getCartItemKey(item: CartItem | CartItemInput) {

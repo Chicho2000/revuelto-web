@@ -17,6 +17,7 @@ import {
 } from "@/components/public/order/cart-provider";
 import { hasMercadoPagoConfiguration } from "@/lib/env";
 import { PUBLIC_CONTACT_PHONE, PUBLIC_HOURS, PUBLIC_INSTAGRAM_HANDLE, PUBLIC_INSTAGRAM_URL } from "@/lib/public-contact";
+import { DELIVERY_HOURS_LABEL, DELIVERY_ZONE_LABEL } from "@/lib/orders/fulfillment";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
     : [];
   const orderBranches: PublicOrderBranch[] = data.status === "ready"
     ? data.visibleBranches
-        .map((branch) => ({ id: branch.id, name: branch.name, address: branch.address, city: branch.city }))
+        .map((branch) => ({ id: branch.id, name: branch.name, address: branch.address, city: branch.city, businessHours: branch.businessHours.map(({ dayOfWeek, openingTime, closingTime, isClosed }) => ({ dayOfWeek, openingTime, closingTime, isClosed })) }))
     : [];
 
   return (
@@ -219,7 +220,7 @@ export function PublicHome({ data }: { data: PublicSiteData }) {
 
       </main>
       {whatsappUrl && <a className="public-whatsapp" href={whatsappUrl} target="_blank" rel="noopener noreferrer"><span className="public-whatsapp-dot" aria-hidden="true">↗</span><span>{content.whatsappButtonText || "WhatsApp"}</span></a>}
-      <footer className="public-footer"><div className="public-footer-top"><a href="#inicio" aria-label="Volver al inicio"><Image src="/brand/logos/logo-horizontal.svg" alt="Revuelto" width={560} height={210} /></a>{content.footerText && <p>{content.footerText}</p>}</div><div className="public-footer-contact"><div><h2>Horarios</h2>{PUBLIC_HOURS.map((item) => <p key={item.label}><strong>{item.label}</strong><span>{item.hours} hs</span></p>)}</div><div><h2>Contacto</h2><a href={`https://wa.me/${PUBLIC_CONTACT_PHONE.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">{PUBLIC_CONTACT_PHONE}</a><a href={PUBLIC_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">{PUBLIC_INSTAGRAM_HANDLE}</a></div></div><div className="public-footer-bottom"><nav aria-label="Navegación del pie"><a href="#inicio">Inicio</a>{menuItems.map((item) => <a href={item.href} key={item.id}>{item.label}</a>)}</nav><div className="public-social-links">{content.tiktokUrl && <a href={content.tiktokUrl} target="_blank" rel="noopener noreferrer">TikTok ↗</a>}</div></div><Image className="public-footer-seal" src="/brand/logos/seal-light.svg" alt="" width={260} height={260} aria-hidden="true" /></footer>
+      <footer className="public-footer"><div className="public-footer-top"><a href="#inicio" aria-label="Volver al inicio"><Image src="/brand/logos/logo-horizontal.svg" alt="Revuelto" width={560} height={210} /></a>{content.footerText && <p>{content.footerText}</p>}</div><div className="public-footer-contact"><div><h2>Horarios</h2>{PUBLIC_HOURS.map((item) => <p key={item.label}><strong>{item.label}</strong><span>{item.hours} hs</span></p>)}</div><div><h2>Envíos</h2><p>{DELIVERY_HOURS_LABEL}</p><p>{DELIVERY_ZONE_LABEL}.</p><p>Costo de envío: $2.000.</p></div><div><h2>Contacto</h2><a href={`https://wa.me/${PUBLIC_CONTACT_PHONE.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">{PUBLIC_CONTACT_PHONE}</a><a href={PUBLIC_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">{PUBLIC_INSTAGRAM_HANDLE}</a></div></div><div className="public-footer-bottom"><nav aria-label="Navegación del pie"><a href="#inicio">Inicio</a>{menuItems.map((item) => <a href={item.href} key={item.id}>{item.label}</a>)}</nav><div className="public-social-links">{content.tiktokUrl && <a href={content.tiktokUrl} target="_blank" rel="noopener noreferrer">TikTok ↗</a>}</div></div><Image className="public-footer-seal" src="/brand/logos/seal-light.svg" alt="" width={260} height={260} aria-hidden="true" /></footer>
     </div>
     </PublicOrderCartProvider>
   );

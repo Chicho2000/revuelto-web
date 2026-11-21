@@ -9,6 +9,7 @@ import {
 } from "@/lib/orders/whatsapp";
 import { getPrisma } from "@/lib/prisma";
 import { PUBLIC_CONTACT_PHONE } from "@/lib/public-contact";
+import { COFFEE_DELIVERY_NOTICE, DELIVERY_FEE_CENTS, REVUELTITO_COMBO_EXTRA_CENTS, getDeliveryAvailability, type DeliveryBusinessHour } from "./fulfillment";
 
 type CatalogBowl = {
   id: string;
@@ -37,7 +38,7 @@ type CatalogRevuelto = {
     options: Array<{ ingredientId: string; ingredient: { name: string } }>;
   }>;
 };
-type CatalogBranch = { id: string; name: string; isActive: boolean; whatsappNumber: string } | null;
+type CatalogBranch = { id: string; name: string; isActive: boolean; whatsappNumber: string; businessHours?: DeliveryBusinessHour[] } | null;
 
 export type OrderCatalog = {
   orderingEnabled: boolean;
@@ -52,7 +53,7 @@ export type OrderCatalog = {
 
 export class PublicOrderError extends Error {
   constructor(
-    public readonly code: "ORDERING_DISABLED" | "PAYMENT_UNAVAILABLE" | "BRANCH_UNAVAILABLE" | "ITEM_UNAVAILABLE" | "INVALID_PRICE",
+    public readonly code: "ORDERING_DISABLED" | "PAYMENT_UNAVAILABLE" | "BRANCH_UNAVAILABLE" | "ITEM_UNAVAILABLE" | "INVALID_PRICE" | "DELIVERY_UNAVAILABLE" | "COFFEE_PICKUP_ONLY",
     message: string,
     public readonly status = 409,
   ) {
@@ -109,7 +110,7 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
     if (!revuelto || !revuelto.isVisibleInNewMenu || revuelto.isArchived) {
       throw new PublicOrderError("ITEM_UNAVAILABLE", "Algunos productos cambiaron o ya no están disponibles. Revisá tu carrito.");
     }
-    if (item.comboDrink && (revuelto.menuCategory !== "REVUELTITO" || revuelto.comboPrice == null)) {
+    if (item.comboDrink && revuelto.menuCategory !== "REVUELTITO") {
       throw new PublicOrderError("ITEM_UNAVAILABLE", "El combo elegido ya no está disponible. Revisá tu carrito.");
     }
 
@@ -149,7 +150,7 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
       excludedIngredients.length > 0 ? `Sin ${excludedIngredients.map((ingredient) => ingredient.ingredient.name).join(", ")}` : null,
       ...choiceLabels,
     ].filter((value): value is string => Boolean(value));
-    const unitPriceCents = moneyValueToCents(item.comboDrink ? revuelto.comboPrice : revuelto.price);
+    const unitPriceCents = moneyValueToCents(revuelto.price) + (item.comboDrink ? REVUELTITO_COMBO_EXTRA_CENTS : 0);
     return {
       key: getCartItemKey(item),
       type: "REVUELTO",
@@ -184,28 +185,44 @@ function resolveLine(item: CartItem, catalog: OrderCatalog): PreparedOrderLine {
   };
 }
 
-export function calculateOrderFromCatalog(input: PrepareOrderInput, catalog: OrderCatalog) {
+export function calculateOrderFromCatalog(input: PrepareOrderInput, catalog: OrderCatalog, now = new Date()) {
   assertPaymentAvailable(input, catalog);
   if (!catalog.branch || !catalog.branch.isActive) {
     throw new PublicOrderError("BRANCH_UNAVAILABLE", "Esta sucursal no está disponible para pedidos por WhatsApp.");
   }
 
+  const fulfillment = input.fulfillment ?? { mode: "PICKUP" as const };
+  let deliveryWindow: string | null = null;
+  let deliveryDate: string | null = null;
+  if (fulfillment.mode === "DELIVERY") {
+    if (input.paymentMethod === "MERCADO_PAGO") throw new PublicOrderError("PAYMENT_UNAVAILABLE", "El envío está disponible por WhatsApp con efectivo o transferencia.");
+    const availability = getDeliveryAvailability(catalog.branch.businessHours ?? [], now);
+    if (!availability.available) throw new PublicOrderError("DELIVERY_UNAVAILABLE", "Podés encargar envío desde las 11:00 del mismo día y hasta las 15:00 o el cierre del local, lo que ocurra primero. Elegí retiro o volvé en ese horario.");
+    if (input.items.some((item) => item.type === "REVUELTO" && item.comboDrink === "COFFEE")) throw new PublicOrderError("COFFEE_PICKUP_ONLY", COFFEE_DELIVERY_NOTICE);
+    deliveryWindow = availability.windowLabel;
+    deliveryDate = availability.date;
+  }
   const lines = input.items.map((item) => resolveLine(item, catalog));
-  const totalCents = lines.reduce((total, line) => total + line.subtotalCents, 0);
+  const subtotalCents = lines.reduce((total, line) => total + line.subtotalCents, 0);
+  const deliveryFeeCents = fulfillment.mode === "DELIVERY" ? DELIVERY_FEE_CENTS : 0;
   return {
     lines,
-    subtotalCents: totalCents,
-    totalCents,
+    subtotalCents,
+    deliveryFeeCents,
+    totalCents: subtotalCents + deliveryFeeCents,
+    fulfillment,
+    deliveryWindow,
+    deliveryDate,
     branchName: catalog.branch.name,
     whatsappNumber: catalog.branch.whatsappNumber,
     paymentMethod: input.paymentMethod,
   };
 }
 
-export function prepareOrderFromCatalog(input: PrepareOrderInput, catalog: OrderCatalog) {
-  const calculated = calculateOrderFromCatalog(input, catalog);
+export function prepareOrderFromCatalog(input: PrepareOrderInput, catalog: OrderCatalog, now = new Date()) {
+  const calculated = calculateOrderFromCatalog(input, catalog, now);
   const { lines, totalCents } = calculated;
-  const message = buildOrderMessage(lines, totalCents, input.paymentMethod);
+  const message = buildOrderMessage(lines, totalCents, input.paymentMethod, { fulfillment: calculated.fulfillment, branchName: calculated.branchName, deliveryWindow: calculated.deliveryWindow, deliveryFeeCents: calculated.deliveryFeeCents, subtotalCents: calculated.subtotalCents });
   const whatsappUrls = buildOrderWhatsAppUrls(calculated.whatsappNumber, message);
   if (!whatsappUrls) throw new PublicOrderError("BRANCH_UNAVAILABLE", "Esta sucursal no está disponible para pedidos por WhatsApp.");
 
@@ -230,7 +247,7 @@ export async function getPublicOrderCatalog(input: PrepareOrderInput): Promise<O
       },
     }),
     prisma.merchandiseItem.findMany({ where: { id: { in: merchandiseIds } }, select: { id: true, name: true, price: true, isActive: true } }),
-    prisma.branch.findUnique({ where: { id: input.branchId }, select: { id: true, name: true, isActive: true, whatsappNumber: true } }),
+    prisma.branch.findUnique({ where: { id: input.branchId }, select: { id: true, name: true, isActive: true, whatsappNumber: true, businessHours: { select: { dayOfWeek: true, openingTime: true, closingTime: true, isClosed: true } } } }),
   ]);
 
   return {

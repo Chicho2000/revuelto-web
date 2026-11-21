@@ -93,7 +93,7 @@ export const DEFAULT_SITE_CONTENT: SiteContentInput = {
   heroButtonUrl: "",
   brandTitle: "Hecho para resolver",
   brandDescription: "",
-  menuSectionTitle: "Un tamaño para cada hambre.",
+  menuSectionTitle: "La carta",
   menuSectionDescription: "",
   promotionsSectionTitle: "Un mimo para volver.",
   promotionsSectionDescription: "",

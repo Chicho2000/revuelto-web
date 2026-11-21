@@ -1,4 +1,5 @@
 import "server-only";
+import { getRevueltitoComboPrice } from "@/lib/orders/fulfillment";
 import { randomUUID } from "node:crypto";
 import { IngredientCategory, TemporaryImageTarget } from "@/generated/prisma/client";
 import type { RevueltoInput } from "@/lib/revueltos/schema";
@@ -118,7 +119,7 @@ function revueltoBaseData(input: RevueltoInput) {
     menuCategory: input.menuCategory,
     kind: input.kind,
     price: input.price,
-    comboPrice: input.comboPrice,
+    comboPrice: input.menuCategory === "REVUELTITO" ? getRevueltitoComboPrice(input.price) : null,
     shortDescription: input.description.slice(0, 180),
     description: input.description,
     displayOrder: input.displayOrder,

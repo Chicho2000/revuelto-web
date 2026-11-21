@@ -112,10 +112,13 @@ export function SiteContentForm({ initialValues }: { initialValues: SiteContentI
             ))}
           </div>
           {section.title === "WhatsApp" && (
+            <>
+            <p className="admin-field-help">Este botón abre consultas generales. Sugerencia de texto: “Consultanos por WhatsApp”. Mensaje: “¡Hola! Quisiera hacer una consulta sobre Revuelto.” Los pedidos del carrito generan su propio mensaje con productos, retiro o envío y total.</p>
             <label className="admin-checkbox admin-content-toggle">
               <input type="checkbox" {...register("whatsappEnabled")} />
               Mostrar botón de WhatsApp
             </label>
+            </>
           )}
         </fieldset>
       ))}

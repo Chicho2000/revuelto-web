@@ -1,4 +1,5 @@
 "use client";
+import { getRevueltitoComboPrice } from "@/lib/orders/fulfillment";
 
 import { useCallback, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -86,7 +87,7 @@ export function RevueltoForm({
   const recipeIngredients = useWatch({ control, name: "recipeIngredients" });
   const choiceGroups = useWatch({ control, name: "choiceGroups" });
   const price = useWatch({ control, name: "price" });
-  const comboPrice = useWatch({ control, name: "comboPrice" });
+  const comboPrice = getRevueltitoComboPrice(price);
 
   const handleImageIdChange = useCallback((imageId: string | null) => {
     setValue("temporaryImageId", imageId, { shouldValidate: true });
@@ -135,7 +136,7 @@ export function RevueltoForm({
         {
           method: mode === "create" ? "POST" : "PUT",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ...values, drinkOptions: values.drinkOptions.map((option, index) => ({ ...option, sortOrder: index })) }),
+          body: JSON.stringify({ ...values, comboPrice: values.menuCategory === "REVUELTITO" ? getRevueltitoComboPrice(values.price) : null, drinkOptions: values.drinkOptions.map((option, index) => ({ ...option, sortOrder: index })) }),
         },
       );
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -207,8 +208,9 @@ export function RevueltoForm({
       </div>
 
       {menuCategory === "REVUELTITO" && <label>
-        Precio con café o agua <span>(opcional durante la carga)</span>
-        <input type="number" min="1" step="0.01" value={comboPrice ?? ""} onChange={(event) => setValue("comboPrice", event.target.value === "" ? null : Number(event.target.value), { shouldValidate: true })} />
+        Precio con café o agua <span>(precio base + $2.000)</span>
+        <input type="number" value={comboPrice ?? ""} readOnly />
+        <small>Se calcula automáticamente. El café es solo para consumir en el local o retirar.</small>
         {errors.comboPrice && <small>{errors.comboPrice.message}</small>}
       </label>}
 

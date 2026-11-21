@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type MouseEvent,
 } from "react";
 import {
   addCartItem,
@@ -30,7 +31,9 @@ import {
   type CartItem,
   type CartItemInput,
   type OrderPaymentMethod,
+  type OrderFulfillment,
 } from "@/lib/orders/schema";
+import { COFFEE_DELIVERY_NOTICE, DELIVERY_FEE_CENTS, DELIVERY_HOURS_LABEL, DELIVERY_ZONE_LABEL, getDeliveryAvailability, type DeliveryBusinessHour } from "@/lib/orders/fulfillment";
 import { CartBottomBar } from "./cart-bottom-bar";
 import { CartItemQuantityControl } from "./cart-item-quantity-control";
 
@@ -48,7 +51,7 @@ export type PublicOrderProduct = {
   imageUrl: string | null;
 };
 
-export type PublicOrderBranch = { id: string; name: string; address: string; city: string };
+export type PublicOrderBranch = { id: string; name: string; address: string; city: string; businessHours?: DeliveryBusinessHour[] };
 export type PublicOrderConfiguration = {
   orderingEnabled: boolean;
   cashEnabled: boolean;
@@ -67,6 +70,11 @@ type PreparedResponse = {
     subtotalCents: number;
   }>;
   totalCents: number;
+  subtotalCents: number;
+  deliveryFeeCents: number;
+  deliveryWindow: string | null;
+  deliveryDate: string | null;
+  fulfillment: OrderFulfillment;
   mobileWhatsappUrl: string;
   mobileFallbackWhatsappUrl: string;
   desktopWhatsappUrl: string;
@@ -82,6 +90,7 @@ type MercadoPagoCreateResponse = {
 
 type CartContextValue = {
   enabled: boolean;
+  fulfillmentMode: "PICKUP" | "DELIVERY";
   totalUnits: number;
   add: (item: CartItemInput) => void;
   addQuantity: (item: CartItemInput, quantity: number) => void;
@@ -117,6 +126,11 @@ export function PublicOrderCartProvider({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"cart" | "checkout" | "prepared">("cart");
   const [branchId, setBranchId] = useState("");
+  const [fulfillmentMode, setFulfillmentMode] = useState<"PICKUP" | "DELIVERY">("PICKUP");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryDetails, setDeliveryDetails] = useState("");
+  const [zoneConfirmed, setZoneConfirmed] = useState(false);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<OrderPaymentMethod | "">("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -154,6 +168,20 @@ export function PublicOrderCartProvider({
   const pricesByKey = useMemo(() => new Map([...productMap].map(([key, product]) => [key, product.unitPriceCents])), [productMap]);
   const totalUnits = getTotalCartUnits(items);
   const estimatedTotalCents = getEstimatedCartTotalCents(items, pricesByKey);
+  const estimatedDeliveryFeeCents = fulfillmentMode === "DELIVERY" && items.length ? DELIVERY_FEE_CENTS : 0;
+  const estimatedTotalWithDeliveryCents = estimatedTotalCents + estimatedDeliveryFeeCents;
+  const selectedBranch = branches.find((branch) => branch.id === branchId);
+  const deliveryAvailability = currentTime ? getDeliveryAvailability(selectedBranch?.businessHours ?? [], currentTime) : null;
+  const coffeeInCart = items.some((item) => item.type === "REVUELTO" && item.comboDrink === "COFFEE");
+  const deliveryReady = fulfillmentMode === "PICKUP" || Boolean(deliveryAvailability?.available && deliveryAddress.trim().length >= 5 && zoneConfirmed && !coffeeInCart && paymentMethod !== "MERCADO_PAGO");
+  const preparedDeliveryCurrent = Boolean(deliveryAvailability?.available && prepared?.deliveryDate === deliveryAvailability.date);
+
+  useEffect(() => {
+    const update = () => setCurrentTime(new Date());
+    const initial = window.setTimeout(update, 0);
+    const timer = window.setInterval(update, 30_000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     const hydrationTask = window.setTimeout(() => {
@@ -182,7 +210,7 @@ export function PublicOrderCartProvider({
 
   useEffect(() => {
     checkoutRequestIdRef.current = null;
-  }, [branchId, items, paymentMethod]);
+  }, [branchId, items, paymentMethod, fulfillmentMode, deliveryAddress, deliveryDetails, zoneConfirmed]);
 
   const announce = useCallback((text: string) => {
     setMessage(text);
@@ -274,6 +302,7 @@ export function PublicOrderCartProvider({
 
   const context = useMemo<CartContextValue>(() => ({
     enabled: configuration.orderingEnabled,
+    fulfillmentMode,
     totalUnits,
     add,
     addQuantity,
@@ -286,11 +315,15 @@ export function PublicOrderCartProvider({
       setPrepared(null);
       setOpen(true);
     },
-  }), [add, addQuantity, configuration.orderingEnabled, decrease, items, recentlyChangedKey, totalUnits]);
+  }), [add, addQuantity, configuration.orderingEnabled, decrease, items, recentlyChangedKey, totalUnits, fulfillmentMode]);
 
   async function prepareOrder() {
     if (!branchId || !paymentMethod) {
       setMessage("Elegí una sucursal y una forma de pago.");
+      return;
+    }
+    if (!deliveryReady) {
+      setMessage(coffeeInCart && fulfillmentMode === "DELIVERY" ? COFFEE_DELIVERY_NOTICE : "Revisá el horario de envío, la dirección y la confirmación de zona.");
       return;
     }
     if (submittingRef.current) return;
@@ -304,7 +337,7 @@ export function PublicOrderCartProvider({
         const response = await fetch("/api/orders/mercado-pago/create", {
           method: "POST",
           headers: { "content-type": "application/json", "x-idempotency-key": clientRequestId },
-          body: JSON.stringify({ branchId, paymentMethod, items }),
+          body: JSON.stringify({ branchId, paymentMethod, items, fulfillment: { mode: "PICKUP" } }),
         });
         const body = await response.json().catch(() => null) as MercadoPagoCreateResponse | null;
         if (!response.ok || !body?.initPoint) {
@@ -318,7 +351,7 @@ export function PublicOrderCartProvider({
       const response = await fetch("/api/orders/prepare", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ branchId, paymentMethod, items }),
+        body: JSON.stringify({ branchId, paymentMethod, items, fulfillment: fulfillmentMode === "DELIVERY" ? { mode: "DELIVERY", address: deliveryAddress.trim(), details: deliveryDetails.trim(), zoneConfirmed } : { mode: "PICKUP" } }),
       });
       const body = await response.json().catch(() => null) as (PreparedResponse & { error?: string; code?: string }) | null;
       if (!response.ok || !body) {
@@ -345,8 +378,23 @@ export function PublicOrderCartProvider({
     setWhatsappHref("");
     setPreparedForMobile(false);
     setShowMobileFallback(false);
+    setFulfillmentMode("PICKUP");
+    setDeliveryAddress("");
+    setDeliveryDetails("");
+    setZoneConfirmed(false);
     setStep("cart");
     announce("Pedido vaciado.");
+  }
+
+  function guardPreparedDelivery(event: MouseEvent<HTMLAnchorElement>) {
+    if (prepared?.fulfillment.mode !== "DELIVERY") return true;
+    const availability = getDeliveryAvailability(selectedBranch?.businessHours ?? [], new Date());
+    if (availability.available && availability.date === prepared.deliveryDate) return true;
+    event.preventDefault();
+    setPrepared(null);
+    setStep("checkout");
+    setMessage("El envío preparado ya no está vigente. Revisá el horario o elegí retiro.");
+    return false;
   }
 
   return (
@@ -390,7 +438,8 @@ export function PublicOrderCartProvider({
                   })}
                 </div>
                 <div className="public-cart-footer">
-                  <div className="public-cart-total"><span>Total estimado</span><strong>{currencyFormatter.format(estimatedTotalCents / 100)}</strong></div>
+                  {estimatedDeliveryFeeCents > 0 && <p className="public-cart-note">Incluye {currencyFormatter.format(estimatedDeliveryFeeCents / 100)} de envío.</p>}
+                  <div className="public-cart-total"><span>Total estimado</span><strong>{currencyFormatter.format(estimatedTotalWithDeliveryCents / 100)}</strong></div>
                   <button type="button" className="public-button public-button-dark" disabled={items.length === 0} onClick={() => setStep("checkout")}>Finalizar pedido</button>
                   {items.length > 0 && <button type="button" className="public-cart-clear" onClick={clearCart}>Vaciar pedido</button>}
                 </div>
@@ -402,13 +451,29 @@ export function PublicOrderCartProvider({
                 <button type="button" className="public-cart-back" onClick={() => setStep("cart")}>← Volver al pedido</button>
                 <label>Sucursal<select value={branchId} onChange={(event) => setBranchId(event.target.value)}><option value="">Elegí una sucursal</option>{branches.map((branch) => <option value={branch.id} key={branch.id}>{branch.name} — {branch.address}, {branch.city}</option>)}</select></label>
                 {branches.length === 0 && <p className="form-message">No hay sucursales habilitadas para pedidos por WhatsApp.</p>}
+                <fieldset><legend>¿Cómo querés recibirlo?</legend>
+                  <label><input type="radio" name="fulfillment" checked={fulfillmentMode === "PICKUP"} onChange={() => setFulfillmentMode("PICKUP")} /> Retiro en el local</label>
+                  <label><input type="radio" name="fulfillment" checked={fulfillmentMode === "DELIVERY"} disabled={!deliveryAvailability?.available} onChange={() => { setFulfillmentMode("DELIVERY"); if (paymentMethod === "MERCADO_PAGO") setPaymentMethod(""); }} /> Envío a domicilio · +{currencyFormatter.format(DELIVERY_FEE_CENTS / 100)}</label>
+                  <p className="public-cart-note">{DELIVERY_HOURS_LABEL}</p>
+                  <p className="public-cart-note">Zona: {DELIVERY_ZONE_LABEL}.</p>
+                  {!branchId ? <p className="public-cart-note">Elegí una sucursal para consultar el horario de envío.</p> : !deliveryAvailability?.available ? <p className="public-cart-note">El envío no está disponible ahora para esta sucursal. Solo se encarga desde las 11:00 del mismo día y antes de las 15:00 o el cierre del local.</p> : <p className="public-cart-note">Entregas de hoy: {deliveryAvailability.windowLabel} hs.{deliveryAvailability.preOrder ? " Podés encargar ahora para ese horario." : ""}</p>}
+                </fieldset>
+                {fulfillmentMode === "DELIVERY" && <>
+                  <label>Dirección de envío<input type="text" autoComplete="street-address" placeholder="Calle, número y piso/departamento" maxLength={300} value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} /></label>
+                  <label>Indicaciones (opcional)<input type="text" placeholder="Por ejemplo, timbre o referencia de entrada" maxLength={300} value={deliveryDetails} onChange={(event) => setDeliveryDetails(event.target.value)} /></label>
+                  <label className="public-delivery-zone"><input type="checkbox" checked={zoneConfirmed} onChange={(event) => setZoneConfirmed(event.target.checked)} /> Confirmo que la dirección está dentro de la zona entre Pellegrini, Oroño y el río.</label>
+                  {coffeeInCart && <p className="form-message" role="alert">{COFFEE_DELIVERY_NOTICE} Volvé al pedido para quitar el combo con café y agregarlo con agua, o elegí retiro.</p>}
+                </>}
                 <fieldset><legend>Forma de pago</legend>
                   <label><input type="radio" name="payment" value="CASH" checked={paymentMethod === "CASH"} disabled={!configuration.cashEnabled} onChange={() => setPaymentMethod("CASH")} /> Efectivo {!configuration.cashEnabled && <small>No disponible</small>}</label>
                   <label><input type="radio" name="payment" value="TRANSFER" checked={paymentMethod === "TRANSFER"} disabled={!configuration.transferEnabled} onChange={() => setPaymentMethod("TRANSFER")} /> Transferencia {!configuration.transferEnabled && <small>No disponible</small>}</label>
-                  <label><input type="radio" name="payment" value="MERCADO_PAGO" checked={paymentMethod === "MERCADO_PAGO"} disabled={!configuration.mercadoPagoEnabled} onChange={() => setPaymentMethod("MERCADO_PAGO")} /> Mercado Pago <small>{configuration.mercadoPagoEnabled ? "Checkout Pro · Prueba" : "No disponible"}</small></label>
+                  <label><input type="radio" name="payment" value="MERCADO_PAGO" checked={paymentMethod === "MERCADO_PAGO"} disabled={!configuration.mercadoPagoEnabled || fulfillmentMode === "DELIVERY"} onChange={() => setPaymentMethod("MERCADO_PAGO")} /> Mercado Pago <small>{configuration.mercadoPagoEnabled && fulfillmentMode === "PICKUP" ? "Checkout Pro · Prueba" : "No disponible"}</small></label>
                 </fieldset>
                 {!configuration.cashEnabled && !configuration.transferEnabled && !configuration.mercadoPagoEnabled && <p className="form-message">Actualmente no hay formas de pago disponibles.</p>}
-                <button type="button" className="public-button public-button-dark" disabled={submitting || !branchId || !paymentMethod} onClick={() => void prepareOrder()}>{submitting ? (paymentMethod === "MERCADO_PAGO" ? "Iniciando pago…" : "Validando…") : (paymentMethod === "MERCADO_PAGO" ? "Pagar con Mercado Pago" : "Preparar pedido")}</button>
+                <div className="public-cart-total"><span>Productos</span><strong>{currencyFormatter.format(estimatedTotalCents / 100)}</strong></div>
+                {estimatedDeliveryFeeCents > 0 && <div className="public-cart-total"><span>Envío</span><strong>{currencyFormatter.format(estimatedDeliveryFeeCents / 100)}</strong></div>}
+                <div className="public-cart-total"><span>Total estimado</span><strong>{currencyFormatter.format(estimatedTotalWithDeliveryCents / 100)}</strong></div>
+                <button type="button" className="public-button public-button-dark" disabled={submitting || !branchId || !paymentMethod || !deliveryReady} onClick={() => void prepareOrder()}>{submitting ? (paymentMethod === "MERCADO_PAGO" ? "Iniciando pago…" : "Validando…") : (paymentMethod === "MERCADO_PAGO" ? "Pagar con Mercado Pago" : "Preparar pedido")}</button>
                 {message && <p className="form-message" role="alert">{message}</p>}
               </div>
             )}
@@ -418,13 +483,22 @@ export function PublicOrderCartProvider({
                 <p className="public-kicker">Pedido validado</p>
                 <h3>Revisá el total y continuá en WhatsApp</h3>
                 <ul>{prepared.lines.map((line) => <li key={line.key}><span>{line.quantity} × {line.name}{line.variant ? ` — ${line.variant}` : ""}</span><strong>{currencyFormatter.format(line.subtotalCents / 100)}</strong></li>)}</ul>
+                <p>Modalidad: <strong>{prepared.fulfillment.mode === "DELIVERY" ? "Envío a domicilio" : "Retiro en el local"}</strong></p>
+                {prepared.fulfillment.mode === "DELIVERY" && <>
+                  <p>Dirección: <strong>{prepared.fulfillment.address}</strong></p>
+                  {prepared.fulfillment.details && <p>Indicaciones: {prepared.fulfillment.details}</p>}
+                  <p>Entrega de hoy: {prepared.deliveryWindow} hs, a confirmar por el local.</p>
+                  <div className="public-cart-total"><span>Productos</span><strong>{currencyFormatter.format(prepared.subtotalCents / 100)}</strong></div>
+                  <div className="public-cart-total"><span>Envío</span><strong>{currencyFormatter.format(prepared.deliveryFeeCents / 100)}</strong></div>
+                </>}
                 <div className="public-cart-total"><span>Total actual</span><strong>{currencyFormatter.format(prepared.totalCents / 100)}</strong></div>
                 <p>Sucursal: <strong>{prepared.branchName}</strong></p>
-                <a className="public-button public-button-dark" href={whatsappHref} target="_blank" rel="noopener noreferrer" onClick={() => {
+                {prepared.fulfillment.mode === "DELIVERY" && !preparedDeliveryCurrent ? <p className="form-message">El envío preparado ya no está vigente. Volvé al pedido para actualizarlo o elegí retiro.</p> : <a className="public-button public-button-dark" href={whatsappHref} target="_blank" rel="noopener noreferrer" onClick={(event) => {
+                  if (!guardPreparedDelivery(event)) return;
                   if (preparedForMobile) setShowMobileFallback(true);
-                }}>Continuar por WhatsApp</a>
-                {preparedForMobile && showMobileFallback && (
-                  <a className="public-cart-back" href={prepared.mobileFallbackWhatsappUrl} target="_blank" rel="noopener noreferrer">¿No se abrió la app? Continuar en WhatsApp</a>
+                }}>Continuar por WhatsApp</a>}
+                {preparedForMobile && showMobileFallback && (prepared.fulfillment.mode === "PICKUP" || preparedDeliveryCurrent) && (
+                  <a className="public-cart-back" href={prepared.mobileFallbackWhatsappUrl} target="_blank" rel="noopener noreferrer" onClick={guardPreparedDelivery}>¿No se abrió la app? Continuar en WhatsApp</a>
                 )}
                 <p className="public-cart-note">WhatsApp abrirá el chat con el texto precargado. Podés revisarlo antes de enviarlo; el carrito se conserva.</p>
                 <button type="button" className="public-cart-back" onClick={() => setStep("cart")}>Volver al pedido</button>
@@ -439,7 +513,7 @@ export function PublicOrderCartProvider({
           items={items}
           products={productMap}
           totalUnits={totalUnits}
-          estimatedTotalCents={estimatedTotalCents}
+          estimatedTotalCents={estimatedTotalWithDeliveryCents}
           onOpen={(opener) => context.open(opener)}
         />
       )}

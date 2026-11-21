@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { getRevueltitoComboPrice } from "@/lib/orders/fulfillment";
 import { DayOfWeek } from "@/generated/prisma/client";
 import { BRANCH_DAYS } from "@/lib/branches/schema";
 import { hasDatabaseRuntimeConfiguration } from "@/lib/env";
@@ -59,7 +60,7 @@ async function getMenuProducts() {
         : []
       : revuelto.choiceGroups,
     price: revuelto.price ? Number(revuelto.price) : null,
-    comboPrice: revuelto.comboPrice ? Number(revuelto.comboPrice) : null,
+    comboPrice: revuelto.menuCategory === "REVUELTITO" ? getRevueltitoComboPrice(revuelto.price === null ? null : Number(revuelto.price)) : null,
   }));
 }
 

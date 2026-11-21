@@ -79,7 +79,6 @@ export const revueltoFormSchema = z.object({
   if (value.menuCategory === "BEBIDA" && value.choiceGroups.length > 0) context.addIssue({ code: "custom", path: ["choiceGroups"], message: "Configurá las variantes de bebida en su propia lista de opciones." });
   if (value.menuCategory !== "REVUELTO" && value.kind !== "FIXED") context.addIssue({ code: "custom", path: ["kind"], message: "Solo Tu Revuelto admite armado libre." });
   if (value.menuCategory !== "REVUELTITO" && value.comboPrice !== null) context.addIssue({ code: "custom", path: ["comboPrice"], message: "El combo solo corresponde a Revueltitos." });
-  if (value.menuCategory === "REVUELTITO" && value.comboPrice !== null && value.price !== null && value.comboPrice <= value.price) context.addIssue({ code: "custom", path: ["comboPrice"], message: "El combo debe costar más que el Revueltito solo." });
 }).refine((value) => !value.removeImage || !value.temporaryImageId, {
   path: ["removeImage"],
   message: "No podés quitar y reemplazar la imagen a la vez.",

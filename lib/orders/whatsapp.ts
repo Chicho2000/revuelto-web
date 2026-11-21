@@ -1,4 +1,5 @@
-import type { OrderPaymentMethod } from "@/lib/orders/schema";
+import type { OrderPaymentMethod, OrderFulfillment } from "@/lib/orders/schema";
+import { DELIVERY_ZONE_LABEL } from "./fulfillment";
 
 export type PreparedOrderLine = {
   key: string;
@@ -38,11 +39,19 @@ export function normalizeWhatsAppNumber(value: string) {
   return null;
 }
 
-export function buildOrderMessage(lines: readonly PreparedOrderLine[], totalCents: number, paymentMethod: OrderPaymentMethod) {
+export function buildOrderMessage(lines: readonly PreparedOrderLine[], totalCents: number, paymentMethod: OrderPaymentMethod, delivery?: { fulfillment: OrderFulfillment; branchName: string; deliveryWindow: string | null; deliveryFeeCents: number; subtotalCents: number }) {
   const food = lines.filter((line) => (line.type === "BOWL" || line.type === "REVUELTO") && line.menuCategory !== "BEBIDA");
   const drinks = lines.filter((line) => line.menuCategory === "BEBIDA");
   const merchandise = lines.filter((line) => line.type === "MERCHANDISE");
   const sections: string[] = ["¡Hola! 👋 Quiero hacer este pedido:"];
+  if (delivery) {
+    sections.push("", `Modalidad: ${delivery.fulfillment.mode === "DELIVERY" ? "Envío a domicilio" : "Retiro en el local"}`, `Sucursal: ${delivery.branchName}`);
+    if (delivery.fulfillment.mode === "DELIVERY") {
+      sections.push(`Dirección: ${delivery.fulfillment.address}`);
+      if (delivery.fulfillment.details) sections.push(`Indicaciones: ${delivery.fulfillment.details}`);
+      sections.push(`Zona: ${DELIVERY_ZONE_LABEL}`, `Entrega de hoy: ${delivery.deliveryWindow}`, "Solicito confirmación del envío y del horario de entrega.");
+    }
+  }
 
   if (food.length > 0) {
     sections.push("", "🍳 COMIDA");
@@ -66,6 +75,7 @@ export function buildOrderMessage(lines: readonly PreparedOrderLine[], totalCent
   }
 
   const paymentIcon = paymentMethod === "CASH" ? "💵" : "💳";
+  if (delivery?.fulfillment.mode === "DELIVERY") sections.push("", `Subtotal de productos: ${formatOrderMoney(delivery.subtotalCents)}`, `Envío: ${formatOrderMoney(delivery.deliveryFeeCents)}`);
   sections.push(
     "",
     `💰 Total: ${formatOrderMoney(totalCents)}`,

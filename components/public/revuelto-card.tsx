@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePublicOrderCart } from "@/components/public/order/cart-provider";
 import type { CartItemInput } from "@/lib/orders/schema";
+import { COFFEE_DELIVERY_NOTICE, getRevueltitoComboPrice } from "@/lib/orders/fulfillment";
 
 type Ingredient = { id: string; name: string };
 type PublicRevuelto = {
@@ -35,6 +36,7 @@ export function RevueltoCard({ revuelto }: { revuelto: PublicRevuelto }) {
   const [comboSelected, setComboSelected] = useState(false);
   const [comboDrink, setComboDrink] = useState<"COFFEE" | "WATER" | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
 
   function resetSelection() {
     setIncludedIngredients(new Set(revuelto.recipeIngredients.map((item) => item.ingredientId)));
@@ -49,11 +51,24 @@ export function RevueltoCard({ revuelto }: { revuelto: PublicRevuelto }) {
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
     document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") closeDialog(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); closeDialog(); return; }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []).filter((element) => element.offsetParent !== null);
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
     document.addEventListener("keydown", onKeyDown);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", onKeyDown); };
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
   }, [open]);
 
   function toggleRemovable(ingredientId: string, checked: boolean) {
@@ -78,9 +93,10 @@ export function RevueltoCard({ revuelto }: { revuelto: PublicRevuelto }) {
     const selected = choices[group.id] ?? [];
     return selected.length >= group.minSelections && selected.length <= group.maxSelections;
   });
-  const comboComplete = !comboSelected || (revuelto.menuCategory === "REVUELTITO" && revuelto.comboPrice !== null && comboDrink !== null);
+  const comboPrice = revuelto.menuCategory === "REVUELTITO" ? getRevueltitoComboPrice(revuelto.price) : null;
+  const comboComplete = !comboSelected || (comboPrice !== null && comboDrink !== null && !(comboDrink === "COFFEE" && cart.fulfillmentMode === "DELIVERY"));
   const canAdd = cart.enabled && revuelto.price !== null && comboComplete && selectionComplete;
-  const currentPrice = comboSelected ? revuelto.comboPrice : revuelto.price;
+  const currentPrice = comboSelected ? comboPrice : revuelto.price;
   function addToCart() {
     if (!canAdd) return;
     const item: CartItemInput = {
@@ -101,27 +117,28 @@ export function RevueltoCard({ revuelto }: { revuelto: PublicRevuelto }) {
         <div className="public-bowl-body"><h3>{revuelto.name}</h3><p className="public-bowl-description">{revuelto.description}</p><strong className="public-revuelto-price">{revuelto.price === null ? "Precio próximamente" : currencyFormatter.format(revuelto.price)}</strong><span className="public-revuelto-open-label">{revuelto.kind === "CUSTOM" ? "Armá tu Revuelto" : "Ver y agregar"}</span></div>
       </button>
       {open && createPortal(<div className="public-revuelto-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
-        <section className="public-revuelto-modal" role="dialog" aria-modal="true" aria-labelledby={`revuelto-dialog-${revuelto.id}`}>
+        <section ref={dialogRef} className="public-revuelto-modal" role="dialog" aria-modal="true" aria-labelledby={`revuelto-dialog-${revuelto.id}`}>
           <header><h2 id={`revuelto-dialog-${revuelto.id}`}>{revuelto.name}</h2><button ref={closeButtonRef} type="button" onClick={closeDialog} aria-label="Cerrar">×</button></header>
           <div className="public-revuelto-modal-content">
             <div className="public-revuelto-modal-image">{revuelto.imageUrl ? <Image src={revuelto.imageUrl} alt={revuelto.name} fill sizes="(max-width: 719px) 100vw, 50vw" /> : <span>Foto próximamente</span>}</div>
             <div className="public-revuelto-configurator">
               {revuelto.description && <p>{revuelto.description}</p>}<strong className="public-revuelto-modal-price">{currentPrice === null ? "Precio próximamente" : currencyFormatter.format(currentPrice)}</strong>
-              {revuelto.menuCategory === "REVUELTITO" && revuelto.comboPrice !== null && <>
+              {revuelto.menuCategory === "REVUELTITO" && comboPrice !== null && <>
                 <fieldset>
                   <legend>Elegí tu opción</legend>
                   <label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={!comboSelected} onChange={() => { setComboSelected(false); setComboDrink(null); }} /><span>Revueltito solo</span><small>{revuelto.price !== null && currencyFormatter.format(revuelto.price)}</small></label>
-                  <label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={comboSelected} onChange={() => setComboSelected(true)} /><span>Combo con bebida</span><small>{currencyFormatter.format(revuelto.comboPrice)}</small></label>
+                  <label className="public-revuelto-option"><input type="radio" name={`combo-${revuelto.id}`} checked={comboSelected} onChange={() => setComboSelected(true)} /><span>Con agua o café · +$2.000</span><small>{currencyFormatter.format(comboPrice)}</small></label>
                 </fieldset>
+                <p className="public-revuelto-hint">{COFFEE_DELIVERY_NOTICE}</p>
                 {comboSelected && <fieldset>
                   <legend>Bebida incluida · obligatorio</legend>
                   <p className="public-revuelto-hint">Elegí una bebida para agregar el combo.</p>
                   <label className="public-revuelto-option"><input type="radio" name={`combo-drink-${revuelto.id}`} checked={comboDrink === "WATER"} onChange={() => setComboDrink("WATER")} required /><span>Agua</span></label>
-                  <label className="public-revuelto-option"><input type="radio" name={`combo-drink-${revuelto.id}`} checked={comboDrink === "COFFEE"} onChange={() => setComboDrink("COFFEE")} required /><span>Café</span></label>
+                  <label className={`public-revuelto-option${cart.fulfillmentMode === "DELIVERY" ? " is-locked" : ""}`}><input type="radio" name={`combo-drink-${revuelto.id}`} checked={comboDrink === "COFFEE"} onChange={() => setComboDrink("COFFEE")} disabled={cart.fulfillmentMode === "DELIVERY"} required /><span>Café · solo local o retiro</span></label>
                 </fieldset>}
               </>}
               {revuelto.recipeIngredients.length > 0 && <fieldset><legend>{revuelto.kind === "CUSTOM" ? "Base incluida" : "Ingredientes"}</legend><p className="public-revuelto-hint">{revuelto.kind === "CUSTOM" ? "Los huevos revueltos son la base del plato." : "Podés quitar los ingredientes habilitados."}</p>{revuelto.recipeIngredients.map((item) => <label className={`public-revuelto-option${!item.isRemovable ? " is-locked" : ""}`} key={item.ingredientId}><input type="checkbox" checked={includedIngredients.has(item.ingredientId)} disabled={!item.isRemovable} onChange={(event) => toggleRemovable(item.ingredientId, event.target.checked)} /><span>{item.ingredient.name}</span><small>{item.isRemovable ? (includedIngredients.has(item.ingredientId) ? "Incluido" : "Sin incluir") : "Incluido"}</small></label>)}</fieldset>}
-              {revuelto.choiceGroups.map((group) => <fieldset key={group.id}><legend>{group.label}</legend><p className="public-revuelto-hint">Elegí {group.minSelections === group.maxSelections ? group.minSelections : `entre ${group.minSelections} y ${group.maxSelections}`}.</p>{group.options.map((option) => { const selected = (choices[group.id] ?? []).includes(option.ingredientId); const cannotAdd = !selected && (choices[group.id] ?? []).length >= group.maxSelections; return <label className="public-revuelto-option" key={option.ingredientId}><input type={group.maxSelections === 1 ? "radio" : "checkbox"} name={`choice-${revuelto.id}-${group.id}`} checked={selected} disabled={cannotAdd} onChange={(event) => toggleChoice(group, option.ingredientId, event.target.checked)} /><span>{option.ingredient.name}</span></label>; })}</fieldset>)}
+              {revuelto.choiceGroups.map((group) => <fieldset key={group.id}><legend>{group.label}</legend><p className="public-revuelto-hint">Elegí {group.minSelections === group.maxSelections ? group.minSelections : `entre ${group.minSelections} y ${group.maxSelections}`}.</p>{group.options.map((option) => { const selected = (choices[group.id] ?? []).includes(option.ingredientId); const cannotAdd = group.maxSelections > 1 && !selected && (choices[group.id] ?? []).length >= group.maxSelections; return <label className="public-revuelto-option" key={option.ingredientId}><input type={group.maxSelections === 1 ? "radio" : "checkbox"} name={`choice-${revuelto.id}-${group.id}`} checked={selected} disabled={cannotAdd} onChange={(event) => toggleChoice(group, option.ingredientId, event.target.checked)} /><span>{option.ingredient.name}</span></label>; })}</fieldset>)}
             </div>
           </div>
           <footer><div className="public-revuelto-quantity" aria-label="Cantidad"><button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity === 1} aria-label="Quitar una unidad">−</button><span>{quantity}</span><button type="button" onClick={() => setQuantity((current) => Math.min(20, current + 1))} aria-label="Agregar una unidad">+</button></div><button type="button" className="public-button public-button-dark" disabled={!canAdd} onClick={addToCart}>{!cart.enabled ? "Pedidos no disponibles" : comboSelected && comboDrink === null ? "Elegí agua o café" : currentPrice === null ? "Precio próximamente" : `Agregar ${currencyFormatter.format(currentPrice * quantity)}`}</button></footer>
