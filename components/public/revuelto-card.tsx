@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { usePublicOrderCart } from "@/components/public/order/cart-provider";
 import type { CartItemInput } from "@/lib/orders/schema";
 import { COFFEE_DELIVERY_NOTICE, getRevueltitoComboPrice } from "@/lib/orders/fulfillment";
+import { toggleIngredientChoice } from "@/lib/revueltos/vegetable-choice";
 
 type Ingredient = { id: string; name: string };
 type PublicRevuelto = {
@@ -81,10 +82,7 @@ export function RevueltoCard({ revuelto }: { revuelto: PublicRevuelto }) {
   function toggleChoice(group: PublicRevuelto["choiceGroups"][number], ingredientId: string, checked: boolean) {
     setChoices((current) => {
       const selected = current[group.id] ?? [];
-      let next = selected;
-      if (group.maxSelections === 1) next = checked ? [ingredientId] : selected;
-      else if (checked && selected.length < group.maxSelections) next = [...selected, ingredientId];
-      else if (!checked && selected.length > group.minSelections) next = selected.filter((id) => id !== ingredientId);
+      const next = toggleIngredientChoice(selected, ingredientId, checked, group.maxSelections);
       return { ...current, [group.id]: next };
     });
   }

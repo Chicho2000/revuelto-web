@@ -1,5 +1,6 @@
 import "server-only";
 import { getRevueltitoComboPrice } from "@/lib/orders/fulfillment";
+import { getRevueltitoVegetableChoiceError } from "./vegetable-choice";
 import { randomUUID } from "node:crypto";
 import { IngredientCategory, TemporaryImageTarget } from "@/generated/prisma/client";
 import type { RevueltoInput } from "@/lib/revueltos/schema";
@@ -35,7 +36,11 @@ async function validateRecipe(input: RevueltoInput) {
     if (input.recipeIngredients.length || input.choiceGroups.length || input.drinkOptions.length === 1) inputError("Las bebidas admiten ninguna opción o al menos dos variantes propias.");
     return;
   }
-  if (input.drinkOptions.length || (input.menuCategory !== "REVUELTO" && input.choiceGroups.length)) inputError("Esta categoría no admite grupos de elección.");
+  if (input.drinkOptions.length || (input.menuCategory !== "REVUELTO" && input.menuCategory !== "REVUELTITO" && input.choiceGroups.length)) inputError("Esta categoría no admite grupos de elección.");
+  if (input.menuCategory === "REVUELTITO") {
+    const error = getRevueltitoVegetableChoiceError(input);
+    if (error) inputError(error);
+  }
   const ids = [
     ...input.recipeIngredients.map((item) => item.ingredientId),
     ...input.choiceGroups.flatMap((group) => group.options.map((option) => option.ingredientId)),

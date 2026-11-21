@@ -20,6 +20,8 @@ Los seis Revueltos definidos figuran a **$14.000** cada uno. Sus recetas están 
 
 Actualización funcional del 21 de noviembre de 2026: el combo se calcula automáticamente como precio base + $2.000 por unidad. El café solo se ofrece para consumo en el local o retiro; para envío el combo puede llevar agua. Esto es independiente del envío, que cuesta $2.000 una sola vez por pedido y se gestiona al finalizar el carrito.
 
+El Revueltito con vegetales permite configurar desde su editor una elección obligatoria de vegetales: activar el selector, indicar la cantidad y marcar las alternativas del catálogo global. Para este producto el negocio indicó exactamente un vegetal. Las alternativas se cargan en el grupo de elección, separadas de los huevos y demás ingredientes fijos. No se inventa ni se carga automáticamente su precio, foto o receta.
+
 ## Sanguchitos
 
 | Producto | Descripción de la carta | Precio |

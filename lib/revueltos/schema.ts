@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getRevueltitoVegetableChoiceError } from "./vegetable-choice";
 
 const ingredientIdSchema = z.string().uuid();
 
@@ -22,8 +23,8 @@ const choiceGroupSchema = z.object({
   code: z.enum(["breakfast-protein", "protein", "vegetables", "seed-nut", "sauce", "drink-variant"]),
   label: z.string().trim().min(1).max(100),
   category: z.enum(["PROTEIN", "VEGETABLE", "SEED_NUT", "SAUCE", "OTHER"]),
-  minSelections: z.number().int().min(0).max(4),
-  maxSelections: z.number().int().min(1).max(4),
+  minSelections: z.number().int().min(0).max(20),
+  maxSelections: z.number().int().min(1).max(20),
   sortOrder: z.number().int().min(0).max(10),
   options: z.array(choiceOptionSchema).min(1).max(20),
 }).strict().refine((group) => group.maxSelections >= group.minSelections, {
@@ -72,6 +73,10 @@ export const revueltoFormSchema = z.object({
   temporaryImageId: z.string().uuid().nullable(),
   removeImage: z.boolean(),
 }).strict().superRefine((value, context) => {
+  if (value.menuCategory === "REVUELTITO") {
+    const error = getRevueltitoVegetableChoiceError(value);
+    if (error) context.addIssue({ code: "custom", path: ["choiceGroups"], message: error });
+  }
   if (value.menuCategory === "REVUELTO" && !value.description) context.addIssue({ code: "custom", path: ["description"], message: "La descripción es obligatoria." });
   if (value.menuCategory !== "BEBIDA" && value.recipeIngredients.length === 0) context.addIssue({ code: "custom", path: ["recipeIngredients"], message: "Elegí al menos un ingrediente." });
   if (value.menuCategory === "BEBIDA" && value.drinkOptions.length === 1) context.addIssue({ code: "custom", path: ["drinkOptions"], message: "Si hay una sola presentación, dejá la lista vacía; para elegir sabores agregá al menos dos opciones." });

@@ -132,6 +132,29 @@ test("el combo de Revueltito conserva bebida y precio del servidor", () => {
   expectOrderError(() => prepareOrderFromCatalog(input([withCoffee]), catalog()), "ITEM_UNAVAILABLE");
 });
 
+test("el Revueltito exige la cantidad de vegetales configurada y conserva la elección en carrito y WhatsApp", () => {
+  const vegetableGroup = { id: choiceGroupId, label: "Elegí 1 vegetal", minSelections: 1, maxSelections: 1, options: [
+    { ingredientId: removableIngredientId, ingredient: { name: "Calabaza" } },
+    { ingredientId: choiceIngredientId, ingredient: { name: "Brócoli" } },
+  ] };
+  const product = { ...catalog().revueltos![0], menuCategory: "REVUELTITO" as const, price: 7000, choiceGroups: [vegetableGroup], recipeIngredients: [{ ingredientId: lockedIngredientId, isRemovable: false, ingredient: { name: "Huevos" } }] };
+  const orderCatalog = catalog({ revueltos: [product] });
+  const chosen = { ...revuelto, excludedIngredientIds: [], choices: [{ groupId: choiceGroupId, ingredientIds: [removableIngredientId] }], comboDrink: "WATER" as const, quantity: 1 };
+  const prepared = prepareOrderFromCatalog(input([chosen]), orderCatalog);
+  assert.match(prepared.message, /Elegí 1 vegetal: Calabaza/);
+  assert.match(prepared.message, /Con agua/);
+  assert.equal(prepared.totalCents, 900_000);
+  const alternative = { ...chosen, choices: [{ groupId: choiceGroupId, ingredientIds: [choiceIngredientId] }] };
+  assert.equal(addCartItem(addCartItem([], chosen), alternative).length, 2);
+  for (const choices of [[], [{ groupId: choiceGroupId, ingredientIds: [] }], [{ groupId: choiceGroupId, ingredientIds: [lockedIngredientId] }], [{ groupId: choiceGroupId, ingredientIds: [removableIngredientId, choiceIngredientId] }]]) {
+    expectOrderError(() => prepareOrderFromCatalog(input([{ ...chosen, choices }]), orderCatalog), "ITEM_UNAVAILABLE");
+  }
+  const twoVegetables = catalog({ revueltos: [{ ...product, choiceGroups: [{ ...vegetableGroup, label: "Elegí 2 vegetales", minSelections: 2, maxSelections: 2 }] }] });
+  expectOrderError(() => prepareOrderFromCatalog(input([chosen]), twoVegetables), "ITEM_UNAVAILABLE");
+  const both = { ...chosen, choices: [{ groupId: choiceGroupId, ingredientIds: [removableIngredientId, choiceIngredientId] }] };
+  assert.match(prepareOrderFromCatalog(input([both]), twoVegetables).message, /Elegí 2 vegetales: Calabaza, Brócoli/);
+});
+
 test("una bebida sin ingredientes se puede pedir y no admite exclusiones inventadas", () => {
   const product = { ...catalog().revueltos![0], menuCategory: "BEBIDA" as const, price: "3000.00", recipeIngredients: [], choiceGroups: [] };
   const orderCatalog = catalog({ revueltos: [product] });

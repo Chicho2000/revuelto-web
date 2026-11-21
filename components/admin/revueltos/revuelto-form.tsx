@@ -128,6 +128,16 @@ export function RevueltoForm({
     setValue("choiceGroups", enabled ? breakfastChoiceGroup() : [], { shouldValidate: true });
   }
 
+  function enableVegetableChoice(enabled: boolean) {
+    setValue("choiceGroups", enabled ? [{ code: "vegetables", label: "Elegí 1 vegetal", category: "VEGETABLE", minSelections: 1, maxSelections: 1, sortOrder: 0, options: [] }] : [], { shouldValidate: true, shouldDirty: true });
+  }
+
+  function setVegetableCount(count: number) {
+    setValue("choiceGroups", getValues("choiceGroups").map((group) => group.code === "vegetables" ? {
+      ...group, minSelections: count, maxSelections: count, label: `Elegí ${count} ${count === 1 ? "vegetal" : "vegetales"}`,
+    } : group), { shouldValidate: true, shouldDirty: true });
+  }
+
   async function save(values: RevueltoFormInput) {
     setFormMessage(null);
     try {
@@ -159,6 +169,7 @@ export function RevueltoForm({
 
   const disabled = isSubmitting || isUploading;
   const breakfastGroup = choiceGroups.find((group) => group.code === "breakfast-protein");
+  const vegetableGroup = choiceGroups.find((group) => group.code === "vegetables");
   const productName = menuCategories[menuCategory].singular;
 
   return (
@@ -270,6 +281,34 @@ export function RevueltoForm({
           })}
         </div>
         {errors.recipeIngredients && <small>{errors.recipeIngredients.message}</small>}
+      </fieldset>}
+
+      {menuCategory === "REVUELTITO" && <fieldset className="admin-recipe-fieldset">
+        <legend>Elección de vegetales (opcional)</legend>
+        <label className="admin-checkbox">
+          <input type="checkbox" checked={Boolean(vegetableGroup)} disabled={disabled} onChange={(event) => enableVegetableChoice(event.target.checked)} />
+          El cliente elige vegetales para este Revueltito
+        </label>
+        {vegetableGroup && <div className="admin-choice-options">
+          <label>Cantidad de vegetales que debe elegir
+            <select value={vegetableGroup.maxSelections} disabled={disabled} onChange={(event) => setVegetableCount(Number(event.target.value))}>
+              {Array.from({ length: 20 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}</option>)}
+            </select>
+          </label>
+          <p>Dejá los huevos y los demás ingredientes fijos en la receta de arriba. Marcá aquí los vegetales entre los que puede elegir; no los incluyas también en la receta fija.</p>
+          {ingredients.filter((ingredient) => ingredient.category === "VEGETABLE").map((ingredient) => {
+            const selected = vegetableGroup.options.some((option) => option.ingredientId === ingredient.id);
+            const fixed = recipeIngredients.some((item) => item.ingredientId === ingredient.id);
+            return <label className="admin-checkbox" key={ingredient.id}>
+              <input type="checkbox" checked={selected} disabled={disabled || (!selected && (!ingredient.isActive || fixed))} onChange={(event) => toggleChoiceOption("vegetables", ingredient.id, event.target.checked)} />
+              {ingredient.name}{fixed ? " (ya está en la receta fija)" : !ingredient.isActive ? " (inactivo)" : ""}
+            </label>;
+          })}
+          {!ingredients.some((ingredient) => ingredient.category === "VEGETABLE") && <p>Primero cargá los vegetales en Ingredientes globales, con la categoría Vegetales.</p>}
+          <p>El cliente deberá elegir exactamente {vegetableGroup.maxSelections}. Opciones seleccionadas: {vegetableGroup.options.length}.</p>
+        </div>}
+        {errors.choiceGroups?.message && <small>{errors.choiceGroups.message}</small>}
+        {errors.choiceGroups?.[0]?.options?.message && <small>{errors.choiceGroups[0].options.message}</small>}
       </fieldset>}
 
       {menuCategory === "REVUELTO" && (kind === "FIXED" ? (
