@@ -18,6 +18,8 @@ Los seis Revueltos definidos figuran a **$14.000** cada uno. Sus recetas están 
 
 “Un topping” describe las recetas preparadas; el Revueltito simple no incluye topping adicional. Si el cliente elige el combo, debe seleccionar exactamente una bebida incluida: agua o café. La elección aparece en la línea del pedido. La carta no especifica tipo de café ni tipo de agua para el combo.
 
+Actualización funcional del 21 de noviembre de 2026: el combo se calcula automáticamente como precio base + $2.000 por unidad. El café solo se ofrece para consumo en el local o retiro; para envío el combo puede llevar agua. Esto es independiente del envío, que cuesta $2.000 una sola vez por pedido y se gestiona al finalizar el carrito.
+
 ## Sanguchitos
 
 | Producto | Descripción de la carta | Precio |

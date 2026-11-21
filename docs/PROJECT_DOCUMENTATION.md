@@ -1,5 +1,7 @@
 # Revuelto — documentación técnica y operativa
 
+Actualización del 21 de noviembre de 2026: el checkout por WhatsApp permite elegir retiro o envío. El envío cuesta $2.000 por pedido, requiere dirección y confirmación de zona (entre Pellegrini, Oroño y el río), y se puede encargar desde las 11:00 del mismo día para entregas entre las 12:00 y las 15:00, respetando el cierre anterior de la sucursal. Se utiliza el horario argentino y `BusinessHour`; no se habilita envío en días cerrados o sin horarios. La zona se confirma por declaración del cliente, sin geocodificación. El servidor recalcula el total, comprueba horario y bloquea el combo con café para delivery. El combo de Revueltitos cuesta precio base + $2.000 por unidad y permite agua o café, este último solo para local/retiro. La dirección se conserva en memoria del checkout y en el enlace de WhatsApp, sin persistirla en localStorage ni PostgreSQL. Ver `lib/orders/fulfillment.ts` y `tests/delivery.test.ts`. Estas reglas prevalecen sobre las referencias históricas a retiro exclusivo. No hay migraciones ni variables nuevas.
+
 Actualizada: 2026-10-21.
 
 Este documento explica el estado real del repositorio, cómo operarlo y las

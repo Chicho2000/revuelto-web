@@ -18,7 +18,7 @@ describen el sistema actual o un estado histórico, no la carta final.
   informan los precios de los seis Revueltos definidos, Revueltitos,
   Sanguchitos y bebidas. `Tu Revuelto` sigue sin precio confirmado. Un producto
   sin precio puede prepararse editorialmente, pero no cerrar un pedido.
-- Los pedidos siguen siendo para retiro en sucursal y continúan por WhatsApp.
+- Los pedidos continúan por WhatsApp, con retiro o envío. Desde el 21 de noviembre de 2026, el envío suma $2.000 por pedido y cubre la zona entre Pellegrini, Oroño y el río. Puede encargarse desde las 11:00 del mismo día para entregas desde las 12:00, hasta las 15:00 o el cierre del local, lo que ocurra primero. La dirección y la declaración de pertenencia a la zona son obligatorias. Ver las reglas y validación en `lib/orders/fulfillment.ts`.
   Mercado Pago queda pausado; su compatibilidad de datos se conserva sin activar
   ni configurar pagos de producción.
 
